@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+*.md
+.DS_Store
+.github
+helm
+tests
+docker-compose.yml
+docs
+package-lock.json
