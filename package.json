@@ -1,9 +1,18 @@
 {
   "name": "hermes",
-  "version": "0.0.1",
-  "description": "Chatting server for projects4me",
+  "version": "1.0.0",
+  "description": "Socket.IO server application",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js",
+    "test": "node --test"
+  },
   "dependencies": {
-    "express": "^4.10.2",
-    "socket.io": "^2.0.4"
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "socket.io-client": "^4.8.3"
   }
 }

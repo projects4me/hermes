@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  hermes:
+    build: .
+    container_name: hermes
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=9000
+      - GAIA_URL=http://host.docker.internal:8080
+      - HERMES_SECRET=hermes-dev-secret
+      - CORS_ORIGIN=http://localhost:4200,http://127.0.0.1:4200
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # api-tester live target: socket auth against gaia-test (:8081).
+  hermes-test:
+    build: .
+    container_name: hermes-test
+    ports:
+      - "9001:9001"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=9001
+      - GAIA_URL=http://host.docker.internal:8081
+      - HERMES_SECRET=hermes-dev-secret
+      - CORS_ORIGIN=http://localhost:4200,http://127.0.0.1:4200
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
