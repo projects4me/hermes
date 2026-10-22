@@ -18,6 +18,12 @@ test('event allowlist is the exact approved contract', () => {
 		'conversation.vote.added',
 		'conversation.vote.removed',
 		'conversation.created',
-		'notification.created'
+		'notification.created',
+		'idea.created',
+		'idea.updated',
+		'idea.message.created',
+		'idea.plan.created',
+		'idea.plan.status.changed',
+		'idea.planissue.created'
 	]);
 });

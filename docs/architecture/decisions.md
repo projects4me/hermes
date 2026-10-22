@@ -158,6 +158,15 @@ are out of scope here.
 | Rationale | Gaia already covers publish rules and real REST→Hermes wiring via PHPUnit and api-tester `--mode live`. Prometheus covers screen consumption with Mirage + Fake Hermes. Duplicating those stacks here would couple this repo's CI to siblings. |
 | Implications | Do not require `gaia-test` or Ember for `npm test`. Socket auth in tests is a fake `{ userId, projectIds }`. Operator detail: `architecture.md` § Testing. |
 
+### D-016 — Idea events are project-scoped allowlist entries
+
+| | |
+|---|---|
+| Status | Accepted |
+| Decision | `EVENT_ALLOWLIST` adds six idea events: `idea.created`, `idea.updated`, `idea.message.created`, `idea.plan.created`, `idea.plan.status.changed`, `idea.planissue.created`. They are project-scoped like the issue events: `projectId` is the idea's project and intents are authorized by project membership. `meta.ideaId` identifies the idea; the envelope is unchanged. |
+| Rationale | Gaia publishes idea activity so Prometheus and Talos can react to messages, plans and created issues. Reusing the project scope and the existing `meta` object keeps the closed contract and the membership check as they are. |
+| Implications | None of them is in `USER_SCOPED_EVENTS`. Gaia `EventNames` must carry the same six names. Agents have no publish path, and `idea.agent.progress` is not allowlisted. |
+
 ---
 
 ## Open questions
