@@ -83,3 +83,46 @@ test('notification.created intent rejected for a different user scope', () => {
 	assert.equal(result.ack.accepted.length, 0);
 	assert.equal(result.ack.rejected[0].reason, 'project_not_authorized');
 });
+
+const IDEA_EVENTS = [
+	'idea.created',
+	'idea.updated',
+	'idea.message.created',
+	'idea.plan.created',
+	'idea.plan.status.changed',
+	'idea.planissue.created'
+];
+
+test('idea event intents are accepted for a project member', () => {
+	const result = evaluateIntentSet(
+		{
+			protocolVersion: 1,
+			revision: 0,
+			intents: IDEA_EVENTS.map((eventName) => ({ projectId: 'project-1', eventName }))
+		},
+		{ revision: -1, rooms: new Set() },
+		['project-1'],
+		'user-1'
+	);
+	assert.equal(result.ok, true);
+	assert.equal(result.ack.rejected.length, 0);
+	assert.deepEqual([...result.nextState.rooms],
+		IDEA_EVENTS.map((eventName) => compositeRoom('project-1', eventName)));
+});
+
+test('idea event intents are rejected for a non-member', () => {
+	const result = evaluateIntentSet(
+		{
+			protocolVersion: 1,
+			revision: 0,
+			intents: IDEA_EVENTS.map((eventName) => ({ projectId: 'project-2', eventName }))
+		},
+		{ revision: -1, rooms: new Set() },
+		['project-1'],
+		'user-1'
+	);
+	assert.equal(result.ok, true);
+	assert.equal(result.ack.accepted.length, 0);
+	assert.deepEqual(result.ack.rejected.map((r) => r.reason),
+		IDEA_EVENTS.map(() => 'project_not_authorized'));
+});
