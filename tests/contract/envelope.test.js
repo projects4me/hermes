@@ -43,3 +43,24 @@ test('event envelope validation accepts every idea event with meta.ideaId', () =
 		assert.equal(validateEventEnvelope(envelope), true, eventName);
 	}
 });
+
+test('event envelope validation accepts workflow.agent.run.requested with run ids in meta', () => {
+	const envelope = {
+		schemaVersion: 1,
+		eventId: 'event-run-1',
+		eventName: 'workflow.agent.run.requested',
+		occurredAt: '2026-10-22T10:00:00Z',
+		projectId: 'user:agent-1',
+		resource: { type: 'workflowRun', id: 'run-1' },
+		actorId: null,
+		changes: {},
+		meta: {
+			workflowId: 'workflow-1',
+			stepId: 'step-1',
+			entityType: 'issue',
+			entityId: 'issue-1'
+		}
+	};
+	assert.equal(validateEventEnvelope(envelope), true);
+	assert.equal(validateEventEnvelope({ ...envelope, prompt: 'do it' }), false);
+});
