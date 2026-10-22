@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { EVENT_ALLOWLIST } = require('../../src/contract');
+const { EVENT_ALLOWLIST, USER_SCOPED_EVENTS } = require('../../src/contract');
 
 test('event allowlist is the exact approved contract', () => {
 	assert.deepEqual(EVENT_ALLOWLIST, [
@@ -24,6 +24,14 @@ test('event allowlist is the exact approved contract', () => {
 		'idea.message.created',
 		'idea.plan.created',
 		'idea.plan.status.changed',
-		'idea.planissue.created'
+		'idea.planissue.created',
+		'workflow.agent.run.requested'
+	]);
+});
+
+test('user-scoped events are the exact approved set', () => {
+	assert.deepEqual([...USER_SCOPED_EVENTS], [
+		'notification.created',
+		'workflow.agent.run.requested'
 	]);
 });
