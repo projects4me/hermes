@@ -126,3 +126,43 @@ test('idea event intents are rejected for a non-member', () => {
 	assert.deepEqual(result.ack.rejected.map((r) => r.reason),
 		IDEA_EVENTS.map(() => 'project_not_authorized'));
 });
+
+const AGENT_RUN_EVENT = 'workflow.agent.run.requested';
+
+test('workflow.agent.run.requested intent accepted for the agent user scope', () => {
+	const result = evaluateIntentSet(
+		{
+			protocolVersion: 1,
+			revision: 0,
+			intents: [{ projectId: 'user:agent-1', eventName: AGENT_RUN_EVENT }]
+		},
+		{ revision: -1, rooms: new Set() },
+		['project-1'],
+		'agent-1'
+	);
+	assert.equal(result.ok, true);
+	assert.equal(result.ack.rejected.length, 0);
+	assert.deepEqual([...result.nextState.rooms], [
+		compositeRoom('user:agent-1', AGENT_RUN_EVENT)
+	]);
+});
+
+test('workflow.agent.run.requested intent rejected for another user or a project scope', () => {
+	const result = evaluateIntentSet(
+		{
+			protocolVersion: 1,
+			revision: 0,
+			intents: [
+				{ projectId: 'user:agent-2', eventName: AGENT_RUN_EVENT },
+				{ projectId: 'project-1', eventName: AGENT_RUN_EVENT }
+			]
+		},
+		{ revision: -1, rooms: new Set() },
+		['project-1'],
+		'agent-1'
+	);
+	assert.equal(result.ok, true);
+	assert.equal(result.ack.accepted.length, 0);
+	assert.deepEqual(result.ack.rejected.map((r) => r.reason),
+		['project_not_authorized', 'project_not_authorized']);
+});

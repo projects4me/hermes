@@ -44,7 +44,8 @@ const EVENT_ALLOWLIST = Object.freeze([
 	'idea.message.created',
 	'idea.plan.created',
 	'idea.plan.status.changed',
-	'idea.planissue.created'
+	'idea.planissue.created',
+	'workflow.agent.run.requested'
 ]);
 
 /**
@@ -55,7 +56,10 @@ const EVENT_ALLOWLIST = Object.freeze([
  * @type Set<String>
  * @public
  */
-const USER_SCOPED_EVENTS = new Set(['notification.created']);
+const USER_SCOPED_EVENTS = new Set([
+	'notification.created',
+	'workflow.agent.run.requested'
+]);
 
 /**
  * Set form of EVENT_ALLOWLIST for O(1) lookups.

@@ -167,6 +167,15 @@ are out of scope here.
 | Rationale | Gaia publishes idea activity so Prometheus and Talos can react to messages, plans and created issues. Reusing the project scope and the existing `meta` object keeps the closed contract and the membership check as they are. |
 | Implications | None of them is in `USER_SCOPED_EVENTS`. Gaia `EventNames` must carry the same six names. Agents have no publish path, and `idea.agent.progress` is not allowlisted. |
 
+### D-017 — `workflow.agent.run.requested` is a user-scoped event
+
+| | |
+|---|---|
+| Status | Accepted |
+| Decision | `EVENT_ALLOWLIST` and `USER_SCOPED_EVENTS` add `workflow.agent.run.requested`. Like `notification.created` (D-009), its `projectId` is `user:<agentUserId>`, so only a socket authenticated as that agent can subscribe. The envelope is unchanged: `resource` is `{ type: 'workflowRun', id: <runId> }` and `meta` carries `workflowId`, `stepId`, `entityType` and `entityId`. |
+| Rationale | Gaia asks an agent's runtime to execute a workflow step. Routing it through the user scope delivers it to that agent only, without a new scope field. Carrying ids only keeps prompts and secrets off the relay; the runtime fetches the step from Gaia with its own session. |
+| Implications | The event must never carry a prompt, step input or credentials; Hermes does not inspect `meta`, so this is Gaia's publishing rule. Gaia `EventNames` must carry the same name. Project-scoped intents for it are rejected. |
+
 ---
 
 ## Open questions

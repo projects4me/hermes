@@ -105,11 +105,13 @@ Allowlisted `eventName` values:
 - `conversation.vote.removed`
 - `conversation.created`
 - `notification.created`
+- `workflow.agent.run.requested`
 
 `revision` is a nonnegative integer and must be greater than the last accepted
 revision on that socket. There may be at most 100 intents. Hermes checks every
 `projectId` against the authenticated socket's memberships (or
-`user:<socketUserId>` for `notification.created`), deduplicates accepted
+`user:<socketUserId>` for the user-scoped events `notification.created` and
+`workflow.agent.run.requested`), deduplicates accepted
 intents, and replaces that socket's composite rooms only after the full
 request is validated. Room keys are internal.
 
@@ -204,6 +206,7 @@ Constraints: **no Gaia**, **no Prometheus**, stub the Gaia session loader.
 | Reconnect | New socket starts at revision `-1`; same revision can be sent again |
 | Disconnect | Closed socket leaves rooms; remaining socket still receives |
 | User-scoped notifications | `notification.created` with `user:<id>` reaches only that user |
+| User-scoped agent runs | `workflow.agent.run.requested` with `user:<agentUserId>` reaches only that user; a project scope is `project_not_authorized` |
 | Foreign user scope | Intent `user:<otherId>` is `project_not_authorized` |
 
 ### Unit tests

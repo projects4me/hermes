@@ -23,7 +23,7 @@ function normalizeIntent(intent) {
 /**
  * Authorize one intent against the socket's session.
  *
- * User-scoped events (e.g. notification.created) require projectId === 'user:<socketUserId>'.
+ * User-scoped events (notification.created, workflow.agent.run.requested) require projectId === 'user:<socketUserId>'.
  * All other events require projectId to be in authorizedProjectIds.
  *
  * @method isIntentAuthorized
