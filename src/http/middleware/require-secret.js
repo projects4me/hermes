@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { bearerToken } = require('../../auth/tokens');
 
 /**
@@ -16,6 +17,25 @@ function sharedSecret(req) {
 }
 
 /**
+ * This function compares two secrets without leaking timing. Different
+ * lengths are rejected up front; equal-length buffers use timingSafeEqual.
+ *
+ * @method secretsMatch
+ * @param {String|null} provided Secret from the request
+ * @param {String} expected Configured secret
+ * @returns {Boolean}
+ * @public
+ */
+function secretsMatch(provided, expected) {
+	if (typeof provided !== 'string' || typeof expected !== 'string') {
+		return false;
+	}
+	const a = Buffer.from(provided);
+	const b = Buffer.from(expected);
+	return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+/**
  * This function returns Express middleware that rejects /publish without the
  * configured HERMES_SECRET.
  *
@@ -28,7 +48,7 @@ function sharedSecret(req) {
  */
 function requireSecret({ config, counters }) {
 	return (req, res, next) => {
-		if (sharedSecret(req) !== config.hermesSecret) {
+		if (!secretsMatch(sharedSecret(req), config.hermesSecret)) {
 			counters.publish.rejected += 1;
 			return res.status(401).json({ error: 'unauthorized' });
 		}
@@ -36,4 +56,4 @@ function requireSecret({ config, counters }) {
 	};
 }
 
-module.exports = { sharedSecret, requireSecret };
+module.exports = { sharedSecret, secretsMatch, requireSecret };

@@ -8,6 +8,9 @@
  * @returns {Number}
  * @private
  */
+const DEV_SECRET = 'hermes-dev-secret';
+const LOCAL_ENVS = ['development', 'test'];
+
 function positiveInteger(value, fallback) {
 	const parsed = Number.parseInt(value, 10);
 	return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
@@ -82,10 +85,18 @@ function loadConfig(env = process.env) {
 	const hermesSecret = env.HERMES_SECRET;
 	const corsOrigin = env.CORS_ORIGIN;
 
-	if (nodeEnv === 'production') {
+	const isLocal = LOCAL_ENVS.includes(nodeEnv);
+
+	if (!isLocal) {
 		if (!hermesSecret) {
-			throw new Error('HERMES_SECRET is required in production');
+			throw new Error(`HERMES_SECRET is required when NODE_ENV is "${nodeEnv}"`);
 		}
+		if (hermesSecret === DEV_SECRET) {
+			throw new Error(`HERMES_SECRET must not be the development default when NODE_ENV is "${nodeEnv}"`);
+		}
+	}
+
+	if (nodeEnv === 'production') {
 		if (!corsOrigin) {
 			throw new Error('CORS_ORIGIN is required in production');
 		}
@@ -94,7 +105,7 @@ function loadConfig(env = process.env) {
 	return {
 		nodeEnv,
 		port: positiveInteger(env.PORT, 9000),
-		hermesSecret: hermesSecret || 'hermes-dev-secret',
+		hermesSecret: hermesSecret || DEV_SECRET,
 		gaiaUrl: (env.GAIA_URL || 'http://localhost:8080').replace(/\/$/, ''),
 		corsOrigin: corsOrigin || 'http://localhost:4200',
 		authCacheTtlMs: positiveInteger(env.AUTH_CACHE_TTL_MS, 5 * 60 * 1000),
