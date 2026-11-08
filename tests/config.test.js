@@ -12,7 +12,7 @@ test('development config keeps local defaults', () => {
 test('production config requires secret and origin', () => {
 	assert.throws(
 		() => loadConfig({ NODE_ENV: 'production' }),
-		/HERMES_SECRET is required in production/
+		/HERMES_SECRET is required when NODE_ENV is "production"/
 	);
 	assert.throws(
 		() => loadConfig({ NODE_ENV: 'production', HERMES_SECRET: 'prod-secret' }),
@@ -69,5 +69,25 @@ test('production CORS allows listed and loopback origins', async () => {
 			});
 		}),
 		/origin not allowed/
+	);
+});
+
+test('dev default secret applies only in development and test', () => {
+	assert.equal(loadConfig({ NODE_ENV: 'test' }).hermesSecret, 'hermes-dev-secret');
+	assert.equal(loadConfig({ NODE_ENV: 'development' }).hermesSecret, 'hermes-dev-secret');
+});
+
+test('other NODE_ENV values require a non-default secret', () => {
+	for (const nodeEnv of ['staging', 'qa']) {
+		assert.throws(() => loadConfig({ NODE_ENV: nodeEnv }), /HERMES_SECRET is required/);
+		assert.throws(
+			() => loadConfig({ NODE_ENV: nodeEnv, HERMES_SECRET: 'hermes-dev-secret' }),
+			/must not be the development default/
+		);
+		assert.equal(loadConfig({ NODE_ENV: nodeEnv, HERMES_SECRET: 'real' }).hermesSecret, 'real');
+	}
+	assert.throws(
+		() => loadConfig({ NODE_ENV: 'production', HERMES_SECRET: 'hermes-dev-secret', CORS_ORIGIN: 'https://x' }),
+		/must not be the development default/
 	);
 });

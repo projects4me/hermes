@@ -176,6 +176,15 @@ are out of scope here.
 | Rationale | Gaia asks an agent's runtime to execute a workflow step. Routing it through the user scope delivers it to that agent only, without a new scope field. Carrying ids only keeps prompts and secrets off the relay; the runtime fetches the step from Gaia with its own session. |
 | Implications | The event must never carry a prompt, step input or credentials; Hermes does not inspect `meta`, so this is Gaia's publishing rule. Gaia `EventNames` must carry the same name. Project-scoped intents for it are rejected. |
 
+### D-018 — Timing-safe ingest secret and no default secret outside local dev
+
+| | |
+|---|---|
+| Status | Accepted |
+| Decision | `/publish` compares the shared secret with `crypto.timingSafeEqual` on equal-length buffers; a different length is rejected without comparing. `loadConfig` uses the `hermes-dev-secret` default only when `NODE_ENV` is `development` or `test`. Any other value fails at startup without `HERMES_SECRET`, and also with `HERMES_SECRET=hermes-dev-secret`. The secret is never logged. |
+| Rationale | `!==` leaks timing, and the default applied to every non-production environment (staging, typos in `NODE_ENV`). This hardens the shared secret until Hermes has a service identity. |
+| Implications | Staging and similar environments must set a real `HERMES_SECRET`. Replacing the shared secret is out of scope. |
+
 ---
 
 ## Open questions
