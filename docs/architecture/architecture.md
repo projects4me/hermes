@@ -165,11 +165,25 @@ drops its own echo.
 
 Local compose runs two Hermes services: `hermes` on `:9000` (auth against OG Gaia `:8080`) and `hermes-test` on `:9001` (auth against `gaia-test` `:8081`) for api-tester live mode.
 
+## Service identity
+
+Hermes can hold its own Gaia identity (D-019): it enrolls as a service client, keeps a `client_credentials` token and rotates its secret. It is **off unless `HERMES_CREDENTIAL_FILE` is set**. The relay (socket auth, `POST /publish`, `/health`) never depends on it: if enrollment fails, Hermes logs `Hermes service identity: start failed (...); retrying in Ns` and retries every `HERMES_IDENTITY_RETRY_MS`; it does not crash or reject. This is covered by `tests/start-hermes.test.js` (Gaia unreachable, enrollment 404 or 500, broken or unreadable credential file). Note that ah-4396 makes socket auth use the service token, after which the identity is required.
+
+Deploy settings (the helm chart, `values-dev.yaml`, lives on the OVH server, not in this repo; set these there):
+
+1. **Persistent volume.** Mount a volume that survives restarts and set `HERMES_CREDENTIAL_FILE` to a file on it (for example `/var/lib/hermes/credential.json`). Without it Hermes enrolls again on every restart and leaves orphan service clients in Gaia. The process user must be able to create and write the file (it is stored with restricted permissions).
+2. **First enrollment.** Either set `GAIA_ENROLLMENT_TOKEN` to a single-use token an admin created in Gaia (approved at once), or leave it unset: Hermes logs a user code once and an admin approves the request in Gaia, within the enrollment timeout (about 16 minutes), after which Hermes starts a new request. Remove the token from the values once the credential file exists; it is only read when there is no stored credential.
+3. **Name.** `HERMES_SERVICE_NAME` is what the admin sees on the request. Set a stable name per deployment (the default is `Hermes <hostname>`, which changes with the pod).
+4. **Gaia must expose** `POST /api/v1/serviceenrollment`, `GET /api/v1/serviceenrollment/{id}`, `POST /api/v1/token` and `PATCH /api/v1/serviceclient/{id}`. Until it does, Hermes only logs the retry.
+5. **Tuning (optional).** `HERMES_ENROLLMENT_POLL_MS`, `HERMES_IDENTITY_RETRY_MS`, `HERMES_SECRET_ROTATION_MS`: see the Config table.
+6. **Secrets.** The secret, token and poll token are never logged; keep the credential file out of images and backups you share.
+
 ## Key files
 
 | Area | Path |
 |---|---|
 | Entry | `server.js` |
+| Start-up wiring | `src/start-hermes.js` |
 | Composition | `src/app.js` |
 | HTTP | `src/http/` |
 | Sockets | `src/socket/` |
