@@ -15,15 +15,21 @@ const { registerSocket } = require('./socket/register');
  * @method createHermesApp
  * @param {Object} options
  * @param {Object} options.config Runtime config from loadConfig
- * @param {Function} [options.loadSession] Gaia session loader
+ * @param {Function} [options.getServiceToken] Returns Hermes's service token for introspection (D-019)
+ * @param {Function} [options.loadSession] Gaia session loader (defaults to introspection)
  * @param {Object} [options.logger] Logger with info/error (defaults to console)
+ * @param {Function} [options.now] Clock in ms
+ * @param {Object} [options.timers] setTimeout/clearTimeout for the expiry disconnect
  * @returns {{app: Object, httpServer: Object, io: Object, counters: Object, sessionCache: SessionCache}}
  * @public
  */
 function createHermesApp({
 	config,
-	loadSession = createGaiaSessionLoader(config.gaiaUrl),
-	logger = console
+	getServiceToken = () => null,
+	loadSession = createGaiaSessionLoader({ gaiaUrl: config.gaiaUrl, getServiceToken }),
+	logger = console,
+	now = Date.now,
+	timers = { setTimeout, clearTimeout }
 }) {
 	const app = express();
 	const httpServer = createServer(app);
@@ -39,11 +45,12 @@ function createHermesApp({
 	const counters = createCounters();
 	const sessionCache = new SessionCache({
 		ttlMs: config.authCacheTtlMs,
-		maxEntries: config.authCacheMaxEntries
+		maxEntries: config.authCacheMaxEntries,
+		now
 	});
 
 	app.use(express.json({ limit: '256kb' }));
-	const deps = { app, io, config, counters, sessionCache, loadSession, logger };
+	const deps = { app, io, config, counters, sessionCache, loadSession, logger, now, timers };
 	registerHttp(app, deps);
 	registerSocket(io, deps);
 

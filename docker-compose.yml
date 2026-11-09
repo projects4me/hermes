@@ -9,12 +9,14 @@ services:
     volumes:
       - ./:/app
       - /app/node_modules
+      - hermes-identity:/var/lib/hermes
     environment:
       - NODE_ENV=development
       - PORT=9000
       - GAIA_URL=http://host.docker.internal:8080
       - HERMES_SECRET=hermes-dev-secret
       - CORS_ORIGIN=http://localhost:4200,http://127.0.0.1:4200
+      - HERMES_CREDENTIAL_FILE=/var/lib/hermes/credential.json
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -28,12 +30,21 @@ services:
     volumes:
       - ./:/app
       - /app/node_modules
+      - hermes-test-identity:/var/lib/hermes
     environment:
       - NODE_ENV=development
       - PORT=9001
       - GAIA_URL=http://host.docker.internal:8081
       - HERMES_SECRET=hermes-dev-secret
       - CORS_ORIGIN=http://localhost:4200,http://127.0.0.1:4200
+      - HERMES_CREDENTIAL_FILE=/var/lib/hermes/credential.json
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+
+# Each Hermes keeps its own service credential (D-019) for socket-auth
+# introspection (D-002). The first start enrolls: approve the logged user code
+# in Projects4Me, or set GAIA_ENROLLMENT_TOKEN.
+volumes:
+  hermes-identity:
+  hermes-test-identity:

@@ -6,7 +6,19 @@ const path = require('path');
 const { io: createClient } = require('socket.io-client');
 const { startStubGaia } = require('./support/stub-gaia');
 const { startHermes } = require('../src/start-hermes');
-const { createGaiaSessionLoader } = require('../src/auth/gaia-session');
+
+const USER_TOKEN = 'user-token-1';
+
+/**
+ * Session loader that accepts USER_TOKEN, so these tests check that a failing
+ * identity never gates the relay without depending on introspection.
+ */
+async function acceptUserToken(token) {
+	if (token !== USER_TOKEN) {
+		return null;
+	}
+	return { userId: 'user-1', actorType: 'user', projectIds: ['project-1'], expiresAt: Date.now() + 3600000 };
+}
 
 function captureLogger() {
 	const lines = [];
@@ -70,7 +82,7 @@ async function startWithIdentity(t, { identityGaiaUrl, credentialFile, gaia }) {
 	process.on('unhandledRejection', onRejection);
 	const hermes = startHermes(config, {
 		logger,
-		loadSession: createGaiaSessionLoader(gaia.url)
+		loadSession: acceptUserToken
 	});
 	t.after(async () => {
 		process.off('unhandledRejection', onRejection);
@@ -81,7 +93,7 @@ async function startWithIdentity(t, { identityGaiaUrl, credentialFile, gaia }) {
 }
 
 async function assertRelayWorks(t, { baseUrl, gaia }) {
-	const client = createClient(baseUrl, { auth: { token: gaia.state.userToken }, transports: ['websocket'] });
+	const client = createClient(baseUrl, { auth: { token: USER_TOKEN }, transports: ['websocket'] });
 	t.after(() => client.close());
 	await new Promise((resolve, reject) => {
 		client.once('connect', resolve);

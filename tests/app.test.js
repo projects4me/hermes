@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const { io: createClient } = require('socket.io-client');
 const { createHermesApp } = require('../src/app');
 
+// Sessions in these tests are user tokens that outlive the test run.
+const TOKEN_EXPIRES_AT = Date.now() + 60 * 60 * 1000;
+
 const config = {
 	port: 0,
 	hermesSecret: 'test-secret',
@@ -29,7 +32,7 @@ test('intents receive only matching validated domain events', async (t) => {
 	const hermes = createHermesApp({
 		config,
 		loadSession: async (token) => token === 'valid'
-			? { userId: 'user-1', projectIds: ['project-1'] }
+			? { actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1', projectIds: ['project-1'] }
 			: null,
 		logger: { info() {}, error() {} }
 	});
@@ -105,7 +108,7 @@ test('intents receive only matching validated domain events', async (t) => {
 test('legacy ingest paths are gone', async (t) => {
 	const hermes = createHermesApp({
 		config,
-		loadSession: async () => ({ userId: 'user-1', projectIds: ['project-1'] }),
+		loadSession: async () => ({ actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1', projectIds: ['project-1'] }),
 		logger: { info() {}, error() {} }
 	});
 	await new Promise((resolve) => hermes.httpServer.listen(0, '127.0.0.1', resolve));
@@ -190,7 +193,7 @@ test('publish reports zero subscribers before intents and increments counter', a
 	const warnings = [];
 	const hermes = createHermesApp({
 		config,
-		loadSession: async () => ({ userId: 'user-1', projectIds: ['project-1'] }),
+		loadSession: async () => ({ actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1', projectIds: ['project-1'] }),
 		logger: {
 			info() {},
 			warn(...args) {
@@ -236,7 +239,7 @@ test('publish reports zero subscribers before intents and increments counter', a
 
 test('two sockets for one user receive only their registered events', async (t) => {
 	const hermes = createTestHermes(t, async () => ({
-		userId: 'user-1',
+		actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1',
 		projectIds: ['project-1']
 	}));
 	const { baseUrl } = await listen(hermes);
@@ -276,7 +279,7 @@ test('two sockets for one user receive only their registered events', async (t) 
 
 test('reconnecting sockets start with a clean revision and can resubscribe', async (t) => {
 	const hermes = createTestHermes(t, async () => ({
-		userId: 'user-1',
+		actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1',
 		projectIds: ['project-1']
 	}));
 	const { baseUrl } = await listen(hermes);
@@ -319,7 +322,7 @@ test('reconnecting sockets start with a clean revision and can resubscribe', asy
 
 test('disconnected sockets stop receiving intent events', async (t) => {
 	const hermes = createTestHermes(t, async () => ({
-		userId: 'user-1',
+		actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1',
 		projectIds: ['project-1']
 	}));
 	const { baseUrl } = await listen(hermes);
@@ -348,8 +351,8 @@ test('disconnected sockets stop receiving intent events', async (t) => {
 
 test('notification.created is delivered only to the matching user socket', async (t) => {
 	const hermes = createTestHermes(t, async (token) => {
-		if (token === 'user-a') return { userId: 'user-1', projectIds: [] };
-		if (token === 'user-b') return { userId: 'user-2', projectIds: [] };
+		if (token === 'user-a') return { actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1', projectIds: [] };
+		if (token === 'user-b') return { actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-2', projectIds: [] };
 		return null;
 	});
 	const { baseUrl } = await listen(hermes);
@@ -399,7 +402,7 @@ test('notification.created is delivered only to the matching user socket', async
 });
 
 test('notification.created intent rejected when scope is another user', async (t) => {
-	const hermes = createTestHermes(t, async () => ({ userId: 'user-1', projectIds: [] }));
+	const hermes = createTestHermes(t, async () => ({ actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1', projectIds: [] }));
 	const { baseUrl } = await listen(hermes);
 	const client = await connectClient(t, baseUrl, 'valid');
 

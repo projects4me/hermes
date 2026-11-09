@@ -1,9 +1,11 @@
 const http = require('http');
 
 /**
- * In-process stub of the Gaia endpoints Hermes uses for its identity (D-015):
- * service enrollment, the token grant and secret rotation. It records every
- * request so tests can check what Hermes sent.
+ * In-process stub of the Gaia endpoints Hermes uses (D-015): service
+ * enrollment, the token grant, secret rotation and token introspection
+ * (Gaia D-065). It records every request so tests can check what Hermes sent.
+ * Introspection answers come from `introspections` (token → answer); any
+ * other token is `{active: false}`.
  *
  * @method startStubGaia
  * @param {Object} [options]
@@ -21,7 +23,7 @@ async function startStubGaia({ enrollmentToken = 'enroll-token-1', expiresIn = 3
 		tokens: new Map(),
 		tokenCount: 0,
 		enrollmentStatus: null,
-		userToken: 'user-token-1'
+		introspections: new Map()
 	};
 
 	function send(res, status, body, headers = {}) {
@@ -71,17 +73,6 @@ async function startStubGaia({ enrollmentToken = 'enroll-token-1', expiresIn = 3
 			};
 			state.enrollments.set(id, enrollment);
 			return send(res, 201, enrollmentDocument(id, enrollment, { pollToken: enrollment.pollToken }));
-		}
-
-		if (req.method === 'GET' && url.pathname === '/api/v1/user/me') {
-			const token = String(req.headers.authorization || '').replace(/^Bearer /, '');
-			if (token !== state.userToken) {
-				return send(res, 401, { errors: [{ detail: 'unauthorized' }] });
-			}
-			return send(res, 200, { data: { type: 'user', id: 'user-1' } });
-		}
-		if (req.method === 'GET' && url.pathname === '/api/v1/membership') {
-			return send(res, 200, { data: [{ attributes: { projectId: 'project-1' } }] });
 		}
 
 		const pollMatch = url.pathname.match(/^\/api\/v1\/serviceenrollment\/([^/]+)$/);
@@ -136,6 +127,15 @@ async function startStubGaia({ enrollmentToken = 'enroll-token-1', expiresIn = 3
 			});
 		}
 
+		if (req.method === 'POST' && url.pathname === '/api/v1/introspect') {
+			const caller = state.tokens.get(String(req.headers.authorization || '').replace(/^Bearer /, ''));
+			if (!caller) {
+				return send(res, 401, { errors: [{ detail: 'Only a service with the token.introspect scope may call this endpoint.' }] });
+			}
+			const token = new URLSearchParams(raw).get('token');
+			return send(res, 200, state.introspections.get(token) || { active: false }, { 'Cache-Control': 'no-store' });
+		}
+
 		return send(res, 404, { errors: [{ detail: 'no route' }] });
 	}
 
@@ -157,6 +157,12 @@ async function startStubGaia({ enrollmentToken = 'enroll-token-1', expiresIn = 3
 		},
 		deny(id) {
 			state.enrollments.get(id).status = 'denied';
+		},
+		issueServiceToken(accessToken, clientId = 'hermes_stored') {
+			state.tokens.set(accessToken, clientId);
+		},
+		introspects(token, answer) {
+			state.introspections.set(token, answer);
 		},
 		close() {
 			return new Promise((resolve) => server.close(resolve));
