@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { EVENT_ALLOWLIST, USER_SCOPED_EVENTS } = require('../../src/contract');
+const { EVENT_ALLOWLIST, USER_SCOPED_EVENTS, userIdFromScope } = require('../../src/contract');
 
 test('event allowlist is the exact approved contract', () => {
 	assert.deepEqual(EVENT_ALLOWLIST, [
@@ -25,13 +25,22 @@ test('event allowlist is the exact approved contract', () => {
 		'idea.plan.created',
 		'idea.plan.status.changed',
 		'idea.planissue.created',
-		'workflow.agent.run.requested'
+		'workflow.agent.run.requested',
+		'user.access.changed'
 	]);
 });
 
 test('user-scoped events are the exact approved set', () => {
 	assert.deepEqual([...USER_SCOPED_EVENTS], [
 		'notification.created',
-		'workflow.agent.run.requested'
+		'workflow.agent.run.requested',
+		'user.access.changed'
 	]);
+});
+
+test('userIdFromScope returns the user id of a user scope only', () => {
+	assert.equal(userIdFromScope('user:42'), '42');
+	assert.equal(userIdFromScope('user:'), null);
+	assert.equal(userIdFromScope('project-1'), null);
+	assert.equal(userIdFromScope(undefined), null);
 });

@@ -106,7 +106,8 @@ function evaluateIntentSet(payload, state, authorizedProjectIds, socketUserId) {
 		stale: false,
 		nextState: {
 			revision: payload.revision,
-			rooms: seenRooms
+			rooms: seenRooms,
+			intents: accepted
 		},
 		ack: {
 			revision: payload.revision,

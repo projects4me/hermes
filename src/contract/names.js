@@ -45,7 +45,8 @@ const EVENT_ALLOWLIST = Object.freeze([
 	'idea.plan.created',
 	'idea.plan.status.changed',
 	'idea.planissue.created',
-	'workflow.agent.run.requested'
+	'workflow.agent.run.requested',
+	'user.access.changed'
 ]);
 
 /**
@@ -58,8 +59,46 @@ const EVENT_ALLOWLIST = Object.freeze([
  */
 const USER_SCOPED_EVENTS = new Set([
 	'notification.created',
-	'workflow.agent.run.requested'
+	'workflow.agent.run.requested',
+	'user.access.changed'
 ]);
+
+/**
+ * User-scoped event Gaia publishes when a user's access changes (account
+ * status, session revocation, membership create or delete). Hermes re-checks
+ * that user's sockets when it arrives (D-020).
+ *
+ * @property USER_ACCESS_CHANGED
+ * @type String
+ * @public
+ */
+const USER_ACCESS_CHANGED = 'user.access.changed';
+
+/**
+ * Prefix of a user scope projectId (`user:<userId>`, D-009).
+ *
+ * @property USER_SCOPE_PREFIX
+ * @type String
+ * @public
+ */
+const USER_SCOPE_PREFIX = 'user:';
+
+/**
+ * This function returns the user id from a user scope (`user:<userId>`,
+ * D-009), or null when the projectId is not a user scope.
+ *
+ * @method userIdFromScope
+ * @param {String} projectId Envelope projectId
+ * @returns {String|null}
+ * @public
+ */
+function userIdFromScope(projectId) {
+	if (typeof projectId !== 'string' || !projectId.startsWith(USER_SCOPE_PREFIX)) {
+		return null;
+	}
+	const userId = projectId.slice(USER_SCOPE_PREFIX.length);
+	return userId || null;
+}
 
 /**
  * Set form of EVENT_ALLOWLIST for O(1) lookups.
@@ -75,5 +114,8 @@ module.exports = {
 	MAX_INTENTS,
 	EVENT_ALLOWLIST,
 	USER_SCOPED_EVENTS,
+	USER_ACCESS_CHANGED,
+	USER_SCOPE_PREFIX,
+	userIdFromScope,
 	EVENT_NAMES
 };

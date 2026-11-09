@@ -91,6 +91,26 @@ class SessionCache {
 	}
 
 	/**
+	 * Removes every cached session of one user, so the next lookup of any of
+	 * that user's tokens asks Gaia again.
+	 *
+	 * @method evictUser
+	 * @param {String} userId User id from the session
+	 * @returns {Number} Number of entries removed
+	 * @public
+	 */
+	evictUser(userId) {
+		let removed = 0;
+		for (const [token, entry] of this.entries) {
+			if (entry.session && entry.session.userId === userId) {
+				this.entries.delete(token);
+				removed += 1;
+			}
+		}
+		return removed;
+	}
+
+	/**
 	 * Removes expired entries.
 	 *
 	 * @method prune

@@ -80,7 +80,12 @@ The client authenticates its Socket.IO handshake with `auth.token` (or an
 introspection call made with its own service token (D-002): user and agent
 tokens are accepted, service tokens refused, and the socket is disconnected
 (`io server disconnect`) when the token expires, so the client reconnects with
-its refreshed token. The client then emits:
+its refreshed token. When Gaia publishes `user.access.changed` for a user,
+Hermes evicts that user's cached sessions and introspects each of their
+sockets again (D-020): a socket whose token is no longer active (or whose
+re-check cannot reach Gaia) is disconnected the same way, and any other socket
+leaves the rooms of projects it is no longer a member of. The client then
+emits:
 
 ```json
 {
@@ -126,7 +131,8 @@ client must send its current set again.
 Intents are stored **per Socket.IO connection**, not per user. Closing a tab
 removes that socket from every composite room automatically.
 
-`GET /health` reports socket, auth-cache, auth, intent, and publish counters.
+`GET /health` reports socket, auth-cache, auth, intent, publish, and access
+re-check counters.
 Auth cache TTL and size are configured with `AUTH_CACHE_TTL_MS` and
 `AUTH_CACHE_MAX_ENTRIES`.
 
@@ -240,12 +246,14 @@ Constraints: **no Gaia**, **no Prometheus**, stub the Gaia session loader.
 | `tests/contract/envelope.test.js` | Closed envelope schema, allowlist, extra keys |
 | `tests/contract/names.test.js` | Allowlist and user-scoped names |
 | `tests/intents/evaluate.test.js` | Snapshot validation, stale revision, membership, duplicates |
+| `tests/intents/reauthorize.test.js` | Re-applying accepted intents to new access: removed projects dropped, revision kept |
 | `tests/intents/room-debug.test.js` | Composite room subscriber descriptions |
 | `tests/auth/tokens.test.js` | `auth.token` then Bearer; no query-string tokens |
-| `tests/auth/session-cache.test.js` | TTL expiry, max-entry eviction, entries bounded by token `exp` |
+| `tests/auth/session-cache.test.js` | TTL expiry, max-entry eviction, entries bounded by token `exp`, per-user eviction |
 | `tests/auth/gaia-session.test.js` | Introspection call with the service token; user, agent, delegated, service and inactive answers; no service token |
 | `tests/auth/socket-session-policy.test.js` | User and agent sessions accepted; service, expired and userless refused |
 | `tests/socket/auth.test.js` | Handshakes against the stub Gaia introspection: active, inactive, service refused, no service token, expiry disconnect, cache bounded by `exp` |
+| `tests/socket/access-recheck.test.js` | `user.access.changed`: membership removal (room left), disabled user (disconnect, cache evicted), unchanged access (no effect), Gaia unreachable (disconnect), other events ignored |
 | `tests/config.test.js` | Production secret/CORS requirements, origin option, identity env |
 | `tests/auth/service-identity.test.js` | Enrollment (token and user code), restart with stored credential, token refresh, rotation, retries; against an in-process stub Gaia (`tests/support/stub-gaia.js`) |
 | `tests/auth/credential-store.test.js` | Atomic mode-600 credential file |

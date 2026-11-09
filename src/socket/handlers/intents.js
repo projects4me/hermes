@@ -31,7 +31,7 @@ function registerIntentHandlers(io, { counters, logger }) {
 	io.on('connection', (socket) => {
 		// State belongs to this connection. A reconnect receives a new socket and
 		// intentionally starts with no subscriptions and revision -1.
-		socket.data.intentState = { revision: -1, rooms: new Set() };
+		socket.data.intentState = { revision: -1, rooms: new Set(), intents: [] };
 		socket.data.intentQueue = Promise.resolve();
 
 		const projectCount = Array.isArray(socket.data.projectIds)
