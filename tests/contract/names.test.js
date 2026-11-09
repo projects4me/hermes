@@ -4,7 +4,8 @@ const {
 	EVENT_ALLOWLIST,
 	USER_SCOPED_EVENTS,
 	RUNTIMES_SCOPE,
-	RUNTIME_SCOPED_EVENTS
+	RUNTIME_SCOPED_EVENTS,
+	userIdFromScope
 } = require('../../src/contract');
 
 test('event allowlist is the exact approved contract', () => {
@@ -30,18 +31,27 @@ test('event allowlist is the exact approved contract', () => {
 		'idea.plan.created',
 		'idea.plan.status.changed',
 		'idea.planissue.created',
-		'workflow.agent.run.requested'
+		'workflow.agent.run.requested',
+		'user.access.changed'
 	]);
 });
 
 test('user-scoped events are the exact approved set', () => {
 	assert.deepEqual([...USER_SCOPED_EVENTS], [
 		'notification.created',
-		'workflow.agent.run.requested'
+		'workflow.agent.run.requested',
+		'user.access.changed'
 	]);
 });
 
 test('the runtimes scope carries workflow.agent.run.requested only', () => {
 	assert.equal(RUNTIMES_SCOPE, 'runtimes');
 	assert.deepEqual([...RUNTIME_SCOPED_EVENTS], ['workflow.agent.run.requested']);
+});
+
+test('userIdFromScope returns the user id of a user scope only', () => {
+	assert.equal(userIdFromScope('user:42'), '42');
+	assert.equal(userIdFromScope('user:'), null);
+	assert.equal(userIdFromScope('project-1'), null);
+	assert.equal(userIdFromScope(undefined), null);
 });

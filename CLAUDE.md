@@ -1,6 +1,6 @@
 # Hermes — Projects4Me realtime relay (Node 18, Express 4, Socket.IO 4)
 
-Read docs/architecture/architecture.md and decisions.md (D-001..D-015) before changing behaviour.
+Read docs/architecture/architecture.md and decisions.md (D-001..D-021) before changing behaviour.
 
 ## Run
 - Run and test commands: workspace skills `p4m-stack` and `run-tests`.

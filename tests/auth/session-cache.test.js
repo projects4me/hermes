@@ -33,3 +33,14 @@ test('session cache entries never outlive the token', () => {
 	now = 100;
 	assert.equal(cache.get('long'), null);
 });
+
+test('evictUser removes every cached session of that user only', () => {
+	const cache = new SessionCache({ ttlMs: 1000, maxEntries: 10, now: () => 0 });
+	cache.set('token-a1', { userId: 'a' });
+	cache.set('token-a2', { userId: 'a' });
+	cache.set('token-b', { userId: 'b' });
+	assert.equal(cache.evictUser('a'), 2);
+	assert.equal(cache.get('token-a1'), null);
+	assert.equal(cache.get('token-a2'), null);
+	assert.deepEqual(cache.get('token-b'), { userId: 'b' });
+});

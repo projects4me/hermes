@@ -15,10 +15,11 @@ const {
  * @param {Object} deps.io Socket.IO server
  * @param {Object} deps.counters In-memory counters
  * @param {Object} deps.logger Logger with optional info()/warn()/error()
+ * @param {Function} [deps.afterPublish] Called with each emitted envelope (access re-check, D-021)
  * @returns {Function} Express request handler
  * @public
  */
-function createPublishHandler({ io, counters, logger }) {
+function createPublishHandler({ io, counters, logger, afterPublish = () => null }) {
 	return (req, res) => {
 		if (!validateEventEnvelope(req.body)) {
 			counters.publish.rejected += 1;
@@ -59,6 +60,7 @@ function createPublishHandler({ io, counters, logger }) {
 		io.to(room).emit('domain:event', req.body);
 		counters.publish.accepted += 1;
 		counters.publish.emitted += 1;
+		afterPublish(req.body);
 
 		if (roomInfo.subscribers === 0) {
 			counters.publish.zeroSubscribers += 1;

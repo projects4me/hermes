@@ -7,7 +7,9 @@ const {
 	EVENT_ALLOWLIST,
 	USER_SCOPED_EVENTS,
 	RUNTIMES_SCOPE,
-	RUNTIME_SCOPED_EVENTS
+	RUNTIME_SCOPED_EVENTS,
+	USER_ACCESS_CHANGED,
+	userIdFromScope
 } = require('./names');
 const { validateEventEnvelope } = require('./envelope');
 const { validateIntentsSet } = require('./intents');
@@ -20,6 +22,8 @@ module.exports = {
 	USER_SCOPED_EVENTS,
 	RUNTIMES_SCOPE,
 	RUNTIME_SCOPED_EVENTS,
+	USER_ACCESS_CHANGED,
+	userIdFromScope,
 	validateIntentsSet,
 	validateEventEnvelope,
 	validationErrors

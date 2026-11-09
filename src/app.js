@@ -7,10 +7,12 @@ const { createGaiaSessionLoader } = require('./auth/gaia-session');
 const { createCounters } = require('./metrics');
 const { registerHttp } = require('./http/register');
 const { registerSocket } = require('./socket/register');
+const { createAccessRecheck } = require('./socket/access-recheck');
+const { createAccessChangeListener } = require('./socket/access-change-listener');
 
 /**
  * This function composes the Express app, Socket.IO server, session cache,
- * and HTTP/socket registrations.
+ * access re-check, and HTTP/socket registrations.
  *
  * @method createHermesApp
  * @param {Object} options
@@ -20,7 +22,7 @@ const { registerSocket } = require('./socket/register');
  * @param {Object} [options.logger] Logger with info/error (defaults to console)
  * @param {Function} [options.now] Clock in ms
  * @param {Object} [options.timers] setTimeout/clearTimeout for the expiry disconnect
- * @returns {{app: Object, httpServer: Object, io: Object, counters: Object, sessionCache: SessionCache}}
+ * @returns {{app: Object, httpServer: Object, io: Object, counters: Object, sessionCache: SessionCache, recheckUserAccess: Function}}
  * @public
  */
 function createHermesApp({
@@ -50,7 +52,9 @@ function createHermesApp({
 	});
 
 	app.use(express.json({ limit: '256kb' }));
-	const deps = { app, io, config, counters, sessionCache, loadSession, logger, now, timers };
+	const recheckUserAccess = createAccessRecheck({ io, sessionCache, loadSession, counters, logger, now });
+	const afterPublish = createAccessChangeListener({ recheckUserAccess, logger });
+	const deps = { app, io, config, counters, sessionCache, loadSession, logger, now, timers, afterPublish };
 	registerHttp(app, deps);
 	registerSocket(io, deps);
 
@@ -59,7 +63,8 @@ function createHermesApp({
 		httpServer,
 		io,
 		counters,
-		sessionCache
+		sessionCache,
+		recheckUserAccess
 	};
 }
 

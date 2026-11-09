@@ -205,6 +205,17 @@ are out of scope here.
 
 ---
 
+### D-021 — `user.access.changed` re-checks that user's sockets
+
+| | |
+|---|---|
+| Status | Accepted |
+| Decision | `EVENT_ALLOWLIST` and `USER_SCOPED_EVENTS` add `user.access.changed` (Gaia live-updates D-011, agaia-4393). Gaia publishes it with `projectId` `user:<userId>`, `resource` `{ type: 'user', id: <userId> }` and empty `changes` after an account status change (after the session revocation), and after a membership is created or deleted. `POST /publish` emits it like any user-scoped event (D-009), then starts a re-check without holding Gaia's request (`src/socket/access-recheck.js`): Hermes evicts the user's cached sessions and introspects each of the user's sockets again with the token from its handshake, queued behind that socket's `intents:set` work. A socket whose token is not accepted any more (D-002 policy), whose introspected user differs, or whose re-check fails (Gaia unreachable) is disconnected (`io server disconnect`). Any other socket gets the new project ids and its accepted intents are re-applied (`src/intents/reauthorize.js`): it leaves the rooms of projects it is no longer a member of, and its revision is kept. The fresh session is cached. |
+| Rationale | Hermes checks access at connect and caches it (D-012), so removed members and disabled users kept receiving events. Gaia owns access, so it only says *whose* access changed and Hermes asks Gaia for the new access instead of trusting a payload. The issue asked for the event not to reach clients; it is delivered to the user's own sockets anyway, because Gaia's merged `hermes.expect` live cases (agaia-4393) subscribe to it to observe the publish, and the payload carries only the user's own id, so a client may use it to refresh what it shows. Disconnecting on a failed re-check fails closed: the client reconnects and its handshake asks Gaia. |
+| Implications | Gaia `EventNames` carries the same name. Project-scoped intents for it are rejected. Role changes are out of scope (they don't change what Hermes routes). A missed event (Hermes down, fail-open publish) leaves cached access until the cache TTL or token expiry. Membership additions are picked up for later `intents:set` snapshots; Hermes does not join rooms the client did not ask for. `/health` reports the `access` counters (`events`, `socketsRechecked`, `socketsDisconnected`, `intentsDropped`, `failures`). |
+
+---
+
 ## Open questions
 
 - Replace `projectId: "user:…"` with a real `scope` field (requires Gaia + Prometheus).
