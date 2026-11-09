@@ -9,7 +9,7 @@ const INTROSPECT_PATH = '/api/v1/introspect';
  *
  * @method toSession
  * @param {Object} answer Parsed introspection body
- * @returns {{userId: String|null, actorType: String, projectIds: Array<String>, expiresAt: Number}|null}
+ * @returns {{userId: String|null, actorType: String, serviceKind: String|null, projectIds: Array<String>, expiresAt: Number}|null}
  * @private
  */
 function toSession(answer) {
@@ -24,6 +24,7 @@ function toSession(answer) {
 	return {
 		userId: answer.sub === null || answer.sub === undefined ? null : String(answer.sub),
 		actorType: answer.actorType,
+		serviceKind: typeof answer.serviceKind === 'string' ? answer.serviceKind : null,
 		projectIds: projectIds.filter((id) => id !== null && id !== undefined && id !== '').map(String),
 		expiresAt: exp * 1000
 	};

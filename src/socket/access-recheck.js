@@ -5,7 +5,7 @@ const { replaceIntentRooms } = require('../intents/replace');
 
 /**
  * This function returns the re-check Hermes runs when Gaia says a user's
- * access changed (`user.access.changed`, D-020). It evicts the user's cached
+ * access changed (`user.access.changed`, D-021). It evicts the user's cached
  * sessions, then introspects each of the user's sockets again: a socket
  * whose token is no longer accepted is disconnected, and any other socket
  * gets its new project ids and leaves the rooms of intents it is no longer

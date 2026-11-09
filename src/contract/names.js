@@ -64,9 +64,31 @@ const USER_SCOPED_EVENTS = new Set([
 ]);
 
 /**
+ * The runtimes scope: the projectId Gaia publishes to so that every Talos
+ * runtime (a service token of kind runtime) can take the event on one socket.
+ *
+ * @property RUNTIMES_SCOPE
+ * @type String
+ * @public
+ */
+const RUNTIMES_SCOPE = 'runtimes';
+
+/**
+ * Events that may be published to, and subscribed on, the runtimes scope.
+ * They are the only events a runtime socket may subscribe to.
+ *
+ * @property RUNTIME_SCOPED_EVENTS
+ * @type Set<String>
+ * @public
+ */
+const RUNTIME_SCOPED_EVENTS = new Set([
+	'workflow.agent.run.requested'
+]);
+
+/**
  * User-scoped event Gaia publishes when a user's access changes (account
  * status, session revocation, membership create or delete). Hermes re-checks
- * that user's sockets when it arrives (D-020).
+ * that user's sockets when it arrives (D-021).
  *
  * @property USER_ACCESS_CHANGED
  * @type String
@@ -114,6 +136,8 @@ module.exports = {
 	MAX_INTENTS,
 	EVENT_ALLOWLIST,
 	USER_SCOPED_EVENTS,
+	RUNTIMES_SCOPE,
+	RUNTIME_SCOPED_EVENTS,
 	USER_ACCESS_CHANGED,
 	USER_SCOPE_PREFIX,
 	userIdFromScope,

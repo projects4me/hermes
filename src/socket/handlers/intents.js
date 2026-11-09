@@ -39,7 +39,7 @@ function registerIntentHandlers(io, { counters, logger }) {
 			: 0;
 		if (typeof logger.info === 'function') {
 			logger.info(
-				`connected userId=${socket.data.userId} socket=${socket.id} projects=${projectCount}`
+				`connected userId=${socket.data.userId} actorType=${socket.data.actorType} socket=${socket.id} projects=${projectCount}`
 			);
 		}
 
@@ -76,7 +76,8 @@ function registerIntentHandlers(io, { counters, logger }) {
 				payload,
 				socket.data.intentState,
 				socket.data.projectIds,
-				socket.data.userId
+				socket.data.userId,
+				socket.data.isRuntime
 			);
 			if (!result.ok) {
 				counters.intents.setsRejected += 1;

@@ -3,7 +3,7 @@ const { USER_ACCESS_CHANGED, userIdFromScope } = require('../contract');
 /**
  * This function returns the hook POST /publish calls after emitting an
  * envelope: for `user.access.changed` it starts the user's access re-check
- * (D-020) without holding Gaia's publish request.
+ * (D-021) without holding Gaia's publish request.
  *
  * @method createAccessChangeListener
  * @param {Object} deps

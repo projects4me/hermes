@@ -15,7 +15,7 @@ const {
  * @param {Object} deps.io Socket.IO server
  * @param {Object} deps.counters In-memory counters
  * @param {Object} deps.logger Logger with optional info()/warn()/error()
- * @param {Function} [deps.afterPublish] Called with each emitted envelope (access re-check, D-020)
+ * @param {Function} [deps.afterPublish] Called with each emitted envelope (access re-check, D-021)
  * @returns {Function} Express request handler
  * @public
  */

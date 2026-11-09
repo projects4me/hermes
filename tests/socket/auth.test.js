@@ -94,9 +94,9 @@ test('an inactive token is unauthorized and not cached', async (t) => {
 	assert.equal(hermes.sessionCache.size, 0);
 });
 
-test('a service token is refused on normal intents', async (t) => {
+test('a service token of another kind cannot open a socket', async (t) => {
 	const { gaia, hermes, baseUrl } = await startHermes(t);
-	gaia.introspects('service-token', serviceAnswer());
+	gaia.introspects('service-token', serviceAnswer({ serviceKind: 'hermes' }));
 	await assert.rejects(() => connect(t, baseUrl, 'service-token'), /unauthorized/);
 	assert.equal(hermes.counters.auth.rejected, 1);
 });
@@ -173,4 +173,72 @@ test('the session cache is bounded by the token expiry', async (t) => {
 	gaia.introspects('user-token', { active: false });
 	await assert.rejects(() => connect(t, baseUrl, 'user-token'), /unauthorized/);
 	assert.equal(introspectionCalls(gaia), 2);
+});
+
+const RUNTIMES_INTENT = { projectId: 'runtimes', eventName: 'workflow.agent.run.requested' };
+
+function runRequest() {
+	return {
+		schemaVersion: 1,
+		eventId: 'event-run-1',
+		eventName: 'workflow.agent.run.requested',
+		occurredAt: '2026-11-09T10:00:00Z',
+		projectId: 'runtimes',
+		resource: { type: 'workflowRun', id: 'run-1' },
+		actorId: null,
+		changes: {},
+		meta: { workflowId: 'workflow-1', stepId: 'step-1', entityType: 'issue', entityId: 'issue-1' }
+	};
+}
+
+test('a runtime service token receives workflow.agent.run.requested on the runtimes scope', async (t) => {
+	const { gaia, baseUrl } = await startHermes(t);
+	gaia.introspects('runtime-token', serviceAnswer());
+
+	const client = await connect(t, baseUrl, 'runtime-token');
+	const ack = await client.emitWithAck('intents:set', { protocolVersion: 1, revision: 0, intents: [RUNTIMES_INTENT] });
+	assert.deepEqual(ack.accepted, [RUNTIMES_INTENT]);
+	assert.deepEqual(ack.rejected, []);
+
+	const received = new Promise((resolve) => client.once('domain:event', resolve));
+	const response = await fetch(`${baseUrl}/publish`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', 'X-Hermes-Secret': 'test-secret' },
+		body: JSON.stringify(runRequest())
+	});
+	assert.equal(response.status, 200);
+	assert.equal((await response.json()).subscribers, 1);
+	assert.deepEqual(await received, runRequest());
+});
+
+test('a runtime service token is refused project, user and other runtimes intents', async (t) => {
+	const { gaia, baseUrl } = await startHermes(t);
+	gaia.introspects('runtime-token', serviceAnswer({ projectIds: ['project-1'] }));
+
+	const client = await connect(t, baseUrl, 'runtime-token');
+	const ack = await client.emitWithAck('intents:set', {
+		protocolVersion: 1,
+		revision: 0,
+		intents: [
+			{ projectId: 'project-1', eventName: 'issue.created' },
+			{ projectId: 'project-1', eventName: 'workflow.agent.run.requested' },
+			{ projectId: 'runtimes', eventName: 'notification.created' }
+		]
+	});
+	assert.deepEqual(ack.accepted, []);
+	assert.deepEqual(ack.rejected.map((r) => r.reason),
+		['project_not_authorized', 'project_not_authorized', 'project_not_authorized']);
+});
+
+test('user and agent tokens are refused the runtimes scope', async (t) => {
+	const { gaia, baseUrl } = await startHermes(t);
+	gaia.introspects('user-token', activeAnswer());
+	gaia.introspects('agent-token', activeAnswer({ sub: 'agent-user-1', actorType: 'agent', act: 'svc_runtime', serviceKind: 'runtime' }));
+
+	for (const token of ['user-token', 'agent-token']) {
+		const client = await connect(t, baseUrl, token);
+		const ack = await client.emitWithAck('intents:set', { protocolVersion: 1, revision: 0, intents: [RUNTIMES_INTENT] });
+		assert.deepEqual(ack.accepted, [], token);
+		assert.equal(ack.rejected[0].reason, 'project_not_authorized', token);
+	}
 });

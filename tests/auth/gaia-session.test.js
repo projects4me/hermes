@@ -22,6 +22,7 @@ test('an active user token becomes a session from one introspection call with th
 	assert.deepEqual(session, {
 		userId: 'user-1',
 		actorType: 'user',
+		serviceKind: null,
 		projectIds: ['p-1', '2'],
 		expiresAt: answer.exp * 1000
 	});
@@ -57,7 +58,14 @@ test('a service token is reported with its actor type and no user', async (t) =>
 	gaia.introspects('other-service-token', serviceAnswer());
 	const session = await loadSession('other-service-token');
 	assert.equal(session.actorType, 'service');
+	assert.equal(session.serviceKind, 'runtime');
 	assert.equal(session.userId, null);
+});
+
+test('a user token carries no service kind', async (t) => {
+	const { gaia, loadSession } = await setup(t);
+	gaia.introspects('user-token', activeAnswer());
+	assert.equal((await loadSession('user-token')).serviceKind, null);
 });
 
 test('without a service token Hermes does not call Gaia and fails closed', async (t) => {

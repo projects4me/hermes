@@ -1,4 +1,9 @@
-const { PROTOCOL_VERSION, EVENT_NAMES } = require('./names');
+const {
+	PROTOCOL_VERSION,
+	EVENT_NAMES,
+	RUNTIMES_SCOPE,
+	RUNTIME_SCOPED_EVENTS
+} = require('./names');
 const {
 	ISO_TIMESTAMP,
 	error,
@@ -53,6 +58,8 @@ function validateEventEnvelope(payload) {
 	}
 	if (!isNonEmptyString(payload.projectId, 255)) {
 		errors.push(error('/projectId', 'type', 'must be a non-empty string'));
+	} else if (payload.projectId === RUNTIMES_SCOPE && !RUNTIME_SCOPED_EVENTS.has(payload.eventName)) {
+		errors.push(error('/projectId', 'enum', `${RUNTIMES_SCOPE} scope is not allowed for this event`));
 	}
 	if (!isPlainObject(payload.resource)) {
 		errors.push(error('/resource', 'type', 'must be object'));

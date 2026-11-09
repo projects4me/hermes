@@ -68,7 +68,7 @@ class SessionCache {
 	 *
 	 * @method set
 	 * @param {String} token OAuth access token
-	 * @param {Object} session { userId, actorType, projectIds, expiresAt }
+	 * @param {Object} session { userId, actorType, serviceKind, projectIds, expiresAt }
 	 * @returns {void}
 	 * @public
 	 */
