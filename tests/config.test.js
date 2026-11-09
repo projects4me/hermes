@@ -91,3 +91,21 @@ test('other NODE_ENV values require a non-default secret', () => {
 		/must not be the development default/
 	);
 });
+
+test('service identity is off without a credential file and reads its env when set', () => {
+	assert.equal(loadConfig({}).identity.credentialFile, null);
+	assert.equal(loadConfig({}).identity.enrollmentToken, null);
+
+	const { identity } = loadConfig({
+		HERMES_CREDENTIAL_FILE: '/var/lib/hermes/credential.json',
+		GAIA_ENROLLMENT_TOKEN: 'one-use',
+		HERMES_SERVICE_NAME: 'Hermes prod',
+		HERMES_ENROLLMENT_POLL_MS: '2000',
+		HERMES_SECRET_ROTATION_MS: 'not-a-number'
+	});
+	assert.equal(identity.credentialFile, '/var/lib/hermes/credential.json');
+	assert.equal(identity.enrollmentToken, 'one-use');
+	assert.equal(identity.serviceName, 'Hermes prod');
+	assert.equal(identity.pollIntervalMs, 2000);
+	assert.equal(identity.rotationIntervalMs, 7 * 24 * 60 * 60 * 1000);
+});

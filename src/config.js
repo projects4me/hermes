@@ -1,3 +1,8 @@
+const os = require('os');
+
+const DEV_SECRET = 'hermes-dev-secret';
+const LOCAL_ENVS = ['development', 'test'];
+
 /**
  * This function parses a positive integer env value, falling back when the
  * value is missing or invalid.
@@ -8,9 +13,6 @@
  * @returns {Number}
  * @private
  */
-const DEV_SECRET = 'hermes-dev-secret';
-const LOCAL_ENVS = ['development', 'test'];
-
 function positiveInteger(value, fallback) {
 	const parsed = Number.parseInt(value, 10);
 	return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
@@ -109,7 +111,15 @@ function loadConfig(env = process.env) {
 		gaiaUrl: (env.GAIA_URL || 'http://localhost:8080').replace(/\/$/, ''),
 		corsOrigin: corsOrigin || 'http://localhost:4200',
 		authCacheTtlMs: positiveInteger(env.AUTH_CACHE_TTL_MS, 5 * 60 * 1000),
-		authCacheMaxEntries: positiveInteger(env.AUTH_CACHE_MAX_ENTRIES, 1000)
+		authCacheMaxEntries: positiveInteger(env.AUTH_CACHE_MAX_ENTRIES, 1000),
+		identity: {
+			credentialFile: env.HERMES_CREDENTIAL_FILE || null,
+			enrollmentToken: env.GAIA_ENROLLMENT_TOKEN || null,
+			serviceName: env.HERMES_SERVICE_NAME || `Hermes ${os.hostname()}`,
+			pollIntervalMs: positiveInteger(env.HERMES_ENROLLMENT_POLL_MS, 5000),
+			retryDelayMs: positiveInteger(env.HERMES_IDENTITY_RETRY_MS, 60000),
+			rotationIntervalMs: positiveInteger(env.HERMES_SECRET_ROTATION_MS, 7 * 24 * 60 * 60 * 1000)
+		}
 	};
 }
 

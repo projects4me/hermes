@@ -1,47 +1,16 @@
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
+const { sendGaiaRequest } = require('./gaia-http');
 
 /**
  * This function GETs a JSON resource from Gaia.
  *
  * @method requestJson
- * @param {String} urlString Absolute URL
+ * @param {String} url Absolute URL
  * @param {Object} headers Request headers
  * @returns {Promise<Object>} Parsed JSON body
  * @private
  */
-function requestJson(urlString, headers) {
-	return new Promise((resolve, reject) => {
-		const url = new URL(urlString);
-		const lib = url.protocol === 'https:' ? https : http;
-		const req = lib.request({
-			hostname: url.hostname,
-			port: url.port,
-			path: `${url.pathname}${url.search}`,
-			method: 'GET',
-			headers,
-			timeout: 4000
-		}, (res) => {
-			let body = '';
-			res.on('data', (chunk) => {
-				body += chunk;
-			});
-			res.on('end', () => {
-				if (res.statusCode < 200 || res.statusCode >= 300) {
-					return reject(new Error(`gaia ${res.statusCode}`));
-				}
-				try {
-					return resolve(JSON.parse(body));
-				} catch (error) {
-					return reject(error);
-				}
-			});
-		});
-		req.on('error', reject);
-		req.on('timeout', () => req.destroy(new Error('gaia timeout')));
-		req.end();
-	});
+function requestJson(url, headers) {
+	return sendGaiaRequest({ url, headers, timeoutMs: 4000 });
 }
 
 /**

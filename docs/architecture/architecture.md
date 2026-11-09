@@ -156,6 +156,12 @@ drops its own echo.
 | `CORS_ORIGIN` | Ember origin | Hermes CORS in production |
 | `AUTH_CACHE_TTL_MS` | `300000` | Socket session cache |
 | `AUTH_CACHE_MAX_ENTRIES` | `1000` | Socket session cache |
+| `HERMES_CREDENTIAL_FILE` | `/var/lib/hermes/credential.json` (mounted volume) | Hermes service identity (D-019); unset = identity off |
+| `GAIA_ENROLLMENT_TOKEN` | single-use token from an admin | First enrollment without approval by user code (D-019) |
+| `HERMES_SERVICE_NAME` | `Hermes <hostname>` | Name shown to the admin on the enrollment request |
+| `HERMES_ENROLLMENT_POLL_MS` | `5000` | Wait between enrollment polls |
+| `HERMES_IDENTITY_RETRY_MS` | `60000` | Wait before retrying a failed enrollment, token or rotation |
+| `HERMES_SECRET_ROTATION_MS` | `604800000` (7 days) | Secret age at which Hermes rotates it |
 
 Local compose runs two Hermes services: `hermes` on `:9000` (auth against OG Gaia `:8080`) and `hermes-test` on `:9001` (auth against `gaia-test` `:8081`) for api-tester live mode.
 
@@ -219,7 +225,11 @@ Constraints: **no Gaia**, **no Prometheus**, stub the Gaia session loader.
 | `tests/intents/room-debug.test.js` | Composite room subscriber descriptions |
 | `tests/auth/tokens.test.js` | `auth.token` then Bearer; no query-string tokens |
 | `tests/auth/session-cache.test.js` | TTL expiry and max-entry eviction |
-| `tests/config.test.js` | Production secret/CORS requirements, origin option |
+| `tests/config.test.js` | Production secret/CORS requirements, origin option, identity env |
+| `tests/auth/service-identity.test.js` | Enrollment (token and user code), restart with stored credential, token refresh, rotation, retries; against an in-process stub Gaia (`tests/support/stub-gaia.js`) |
+| `tests/auth/credential-store.test.js` | Atomic mode-600 credential file |
+| `tests/auth/retry-scheduler.test.js` | Named timers, retries with Retry-After, stop |
+| `tests/auth/identity-factory.test.js` | Identity built only when `HERMES_CREDENTIAL_FILE` is set |
 
 ```bash
 npm test
