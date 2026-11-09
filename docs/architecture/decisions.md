@@ -37,9 +37,9 @@ are out of scope here.
 | | |
 |---|---|
 | Status | Accepted |
-| Decision | `POST /publish` authenticates with `HERMES_SECRET` (`X-Hermes-Secret` or Bearer shared secret). Socket handshakes authenticate with the user's OAuth access token against Gaia `GET /api/v1/user/me`. |
-| Rationale | Ingest is server-to-server. Socket sessions are user sessions. One credential for both would let a browser publish, or force Gaia to send a user token as a machine secret. |
-| Implications | Do not send the current user's access token as the publish credential. Do not treat removing query-string socket tokens as a reason to drop the shared-secret header. |
+| Decision | `POST /publish` authenticates with `HERMES_SECRET` (`X-Hermes-Secret` or Bearer shared secret). Socket handshakes authenticate the client's OAuth access token with one Gaia introspection call, `POST /api/v1/introspect` (Gaia D-065), made with Hermes's own service token (D-019) and the handshake token in the form field `token`. The socket session is `sub` (user id), `actorType`, `projectIds` and `exp` from the answer (`src/auth/gaia-session.js`). User and agent tokens open a socket, delegated agent tokens (`act` set) included; service tokens (`actorType: service`) are refused on normal intents (`src/auth/socket-session-policy.js`). An inactive answer, an answer without an actor type or an `exp`, a token already past its `exp`, a refused service token and an unreachable Gaia are all `unauthorized`. A socket is disconnected (`io server disconnect`) when its token's `exp` passes (`src/socket/expiry.js`, counted in `auth.expired`); the client opens a new socket with its refreshed token. |
+| Rationale | Ingest is server-to-server. Socket sessions are user or agent sessions. One credential for both would let a browser publish, or force Gaia to send a user token as a machine secret. One introspection call with Hermes's own token replaces `GET /api/v1/user/me` plus a membership query made with the user's token, gives the actor type, so agents and services can be told apart, and gives the token's expiry, so no socket outlives its token. |
+| Implications | Do not send the current user's access token as the publish credential. Do not treat removing query-string socket tokens as a reason to drop the shared-secret header. Without a service token (identity off, or not yet enrolled or approved) every handshake is refused and Gaia is not called: socket auth needs `HERMES_CREDENTIAL_FILE` (D-019), so both local compose services set it. A token revoked before its `exp` keeps an open socket until `exp`, and a new handshake may be served from the cache until the entry expires (D-012); live revocation is out of scope. Service tokens get a room of their own (runtimes) in a later change. |
 
 ### D-003 — Event names are an allowlist
 
@@ -120,16 +120,16 @@ are out of scope here.
 | Status | Accepted |
 | Decision | Handshake credentials come from Socket.IO `auth.token`, then `Authorization: Bearer`. Query-string tokens are not accepted. |
 | Rationale | Tokens in the URL leak to logs, proxies, and Referer. Prometheus already sends `auth.token`. |
-| Implications | A client that only puts the token in `?token=` is unauthorized. Do not reintroduce query-string auth. |
+| Implications | A client that only puts the token in `?token=` is unauthorized. Do not reintroduce query-string auth. The handshake token is the one introspected (D-002) and the socket lives until that token's `exp`: a client that refreshes its token must open a new socket with it, since a running socket's credentials cannot change. |
 
 ### D-012 — Gaia session lookups are cached
 
 | | |
 |---|---|
 | Status | Accepted |
-| Decision | Successful Gaia session loads are cached by token with `AUTH_CACHE_TTL_MS` (default 5 minutes) and `AUTH_CACHE_MAX_ENTRIES` (default 1000). Expired entries are dropped; the oldest entry is evicted when the cache is full. |
-| Rationale | Every socket handshake would otherwise hit Gaia `GET /api/v1/user/me` (and memberships). Reconnect storms would amplify that. |
-| Implications | Membership changes can take up to the TTL to affect new sockets. Cache misses still fail closed (`unauthorized`) when Gaia is down or the token is invalid. |
+| Decision | Active introspection answers (D-002) are cached by token with `AUTH_CACHE_TTL_MS` (default 5 minutes) and `AUTH_CACHE_MAX_ENTRIES` (default 1000). An entry expires at the TTL or at the token's `exp`, whichever comes first, and a session already past its `exp` is not stored. Inactive answers are not cached. Expired entries are dropped; the oldest entry is evicted when the cache is full. |
+| Rationale | Every socket handshake would otherwise hit Gaia introspection. Reconnect storms would amplify that. Bounding entries by `exp` means the cache never accepts a token Gaia would call expired. |
+| Implications | Membership changes and revocations can take up to the TTL to affect new sockets. Cache misses still fail closed (`unauthorized`) when Gaia is down, Hermes has no service token, or the token is not active. |
 
 ### D-013 — Ingest is fail-closed; valid envelopes emit even with zero subscribers
 
@@ -156,7 +156,7 @@ are out of scope here.
 | Status | Accepted |
 | Decision | Hermes tests run with `node --test` against `createHermesApp` and a stub `loadSession`. They do not start Gaia, Prometheus, or Docker compose. |
 | Rationale | Gaia already covers publish rules and real REST→Hermes wiring via PHPUnit and api-tester `--mode live`. Prometheus covers screen consumption with Mirage + Fake Hermes. Duplicating those stacks here would couple this repo's CI to siblings. |
-| Implications | Do not require `gaia-test` or Ember for `npm test`. Socket auth in tests is a fake `{ userId, projectIds }`. Operator detail: `architecture.md` § Testing. |
+| Implications | Do not require `gaia-test` or Ember for `npm test`. Socket auth in tests is a fake `{ userId, actorType, projectIds, expiresAt }`, or the in-process stub Gaia's introspection endpoint (`tests/support/stub-gaia.js`) behind the real loader. Operator detail: `architecture.md` § Testing. |
 
 ### D-016 — Idea events are project-scoped allowlist entries
 
@@ -176,7 +176,7 @@ are out of scope here.
 | Rationale | Gaia asks an agent's runtime to execute a workflow step. Routing it through the user scope delivers it to that agent only, without a new scope field. Carrying ids only keeps prompts and secrets off the relay; the runtime fetches the step from Gaia with its own session. |
 | Implications | The event must never carry a prompt, step input or credentials; Hermes does not inspect `meta`, so this is Gaia's publishing rule. Gaia `EventNames` must carry the same name. Project-scoped intents for it are rejected. |
 
-### D-018 � Timing-safe ingest secret and no default secret outside local dev
+### D-018 — Timing-safe ingest secret and no default secret outside local dev
 
 | | |
 |---|---|
@@ -192,7 +192,7 @@ are out of scope here.
 | Status | Accepted |
 | Decision | Hermes gets its own identity from Gaia as a service client of kind `hermes`. When `HERMES_CREDENTIAL_FILE` is set and the file is missing, Hermes enrolls through Gaia's `serviceenrollment` resource (Gaia's "Services enroll themselves" decision): with `GAIA_ENROLLMENT_TOKEN` the request is approved at once (Gaia D-070); without one, Hermes logs the user code once for an admin to approve, then polls until the secret is delivered. It stores `{clientId, clientSecret, serviceClientId, secretIssuedAt}` in that file, written to a new temp file created with mode 600, synced and renamed (mode 600 has no effect on Windows), so restarts need no new enrollment. On every start it gets a client_credentials token, refreshes it at 80% of its lifetime, and rotates its secret once the secret is 7 days old (Gaia D-068, `PATCH /api/v1/serviceclient/{serviceClientId}`), storing the new secret at once, inside Gaia's 10-minute grace for the old one. Gaia calls go through `src/auth/gaia-identity-client.js` (on the HTTP transport `gaia-http.js`, shared with the socket-auth gateway `gaia-session.js`), the file through `credential-store.js`, timers and retries through `retry-scheduler.js`, and `service-identity.js` decides when to call them. Hermes stops its timers on SIGTERM and SIGINT. Without `HERMES_CREDENTIAL_FILE` the identity is off. |
 | Rationale | No service secret is copied by hand: it goes from Gaia straight to Hermes. The file is Hermes's own configuration (who it is), not domain storage: it holds no events, users or projects, so Hermes stays a relay (D-001). Keeping the identity opt-in stops every local Hermes from filing enrollment requests before anything uses the token. |
-| Implications | Enrollment, token and rotation failures never stop the relay: they are logged (status codes only) and retried in the background after `HERMES_IDENTITY_RETRY_MS`, or after a 429's Retry-After. The enrollment token is single use, so only the first attempt sends it; later attempts fall back to approval by user code. A delivered or rotated secret is kept in memory and its save retried until the file has it, so a failed save never leads to a second enrollment. Polling waits a 429's Retry-After, treats network and 5xx errors as still pending, ends on any other 4xx, and gives up on a request after 16 minutes (Gaia's requests live 15). The poll token travels in the query string because Gaia's contract puts it there; it lives 15 minutes and only polls one request, and Hermes never logs request URLs. The secret, tokens and poll token are never logged; the user code appears once. A credential that Gaia refuses (client disabled, secret lost after the grace period) keeps being retried; the operator deletes the file to enroll again. A credential stored without `serviceClientId` still gets tokens but is not rotated. Gaia returns `serviceClientId` on the delivering poll since agaia-4408. Using the token (introspection for socket auth) is a later change. |
+| Implications | Enrollment, token and rotation failures never stop the relay: they are logged (status codes only) and retried in the background after `HERMES_IDENTITY_RETRY_MS`, or after a 429's Retry-After. The enrollment token is single use, so only the first attempt sends it; later attempts fall back to approval by user code. A delivered or rotated secret is kept in memory and its save retried until the file has it, so a failed save never leads to a second enrollment. Polling waits a 429's Retry-After, treats network and 5xx errors as still pending, ends on any other 4xx, and gives up on a request after 16 minutes (Gaia's requests live 15). The poll token travels in the query string because Gaia's contract puts it there; it lives 15 minutes and only polls one request, and Hermes never logs request URLs. The secret, tokens and poll token are never logged; the user code appears once. A credential that Gaia refuses (client disabled, secret lost after the grace period) keeps being retried; the operator deletes the file to enroll again. A credential stored without `serviceClientId` still gets tokens but is not rotated. Gaia returns `serviceClientId` on the delivering poll since agaia-4408. Socket auth introspects handshake tokens with this token (D-002, ah-4396), so with the identity off every socket handshake is refused. |
 
 ---
 

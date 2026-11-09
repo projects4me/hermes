@@ -1,6 +1,8 @@
 /**
  * This class caches Gaia session lookups for socket authentication. Entries
- * expire after ttlMs and the oldest entry is evicted when maxEntries is hit.
+ * expire after ttlMs, or earlier when the session's token expires
+ * (`session.expiresAt`), and the oldest entry is evicted when maxEntries is
+ * hit.
  *
  * @class SessionCache
  * @public
@@ -42,7 +44,7 @@ class SessionCache {
 	 *
 	 * @method get
 	 * @param {String} token OAuth access token
-	 * @returns {Object|null} Cached { userId, projectIds }
+	 * @returns {Object|null} Cached session
 	 * @public
 	 */
 	get(token) {
@@ -60,25 +62,32 @@ class SessionCache {
 	}
 
 	/**
-	 * Stores a session for the token, evicting the oldest entry if needed.
+	 * Stores a session for the token, evicting the oldest entry if needed. The
+	 * entry never outlives the token: a session whose `expiresAt` has passed
+	 * is not stored.
 	 *
 	 * @method set
 	 * @param {String} token OAuth access token
-	 * @param {Object} session { userId, projectIds }
+	 * @param {Object} session { userId, actorType, projectIds, expiresAt }
 	 * @returns {void}
 	 * @public
 	 */
 	set(token, session) {
+		const now = this.now();
+		let expiresAt = now + this.ttlMs;
+		if (Number.isFinite(session?.expiresAt)) {
+			expiresAt = Math.min(expiresAt, session.expiresAt);
+		}
+		if (expiresAt <= now) {
+			return;
+		}
 		this.prune();
 		this.entries.delete(token);
 		while (this.entries.size >= this.maxEntries) {
 			this.entries.delete(this.entries.keys().next().value);
 			this.evictions += 1;
 		}
-		this.entries.set(token, {
-			session,
-			expiresAt: this.now() + this.ttlMs
-		});
+		this.entries.set(token, { session, expiresAt });
 	}
 
 	/**

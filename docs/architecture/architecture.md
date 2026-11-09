@@ -76,7 +76,11 @@ from `Systemnotificationrecipient::afterCreate`. All of them share
 ## Client contract
 
 The client authenticates its Socket.IO handshake with `auth.token` (or an
-`Authorization: Bearer` header) and emits:
+`Authorization: Bearer` header). Hermes checks that token with one Gaia
+introspection call made with its own service token (D-002): user and agent
+tokens are accepted, service tokens refused, and the socket is disconnected
+(`io server disconnect`) when the token expires, so the client reconnects with
+its refreshed token. The client then emits:
 
 ```json
 {
@@ -152,11 +156,11 @@ drops its own echo.
 |---|---|---|
 | `HERMES_URL` | `http://host.docker.internal:9000` (OG Gaia) / `:9001` (gaia-test → hermes-test) | Gaia → Hermes ingest |
 | `HERMES_SECRET` | shared secret | Gaia `X-Hermes-Secret`, Hermes `/publish` |
-| `GAIA_URL` | `http://host.docker.internal:8080` (hermes) / `:8081` (hermes-test) | Hermes socket auth (`GET /api/v1/user/me`) |
+| `GAIA_URL` | `http://host.docker.internal:8080` (hermes) / `:8081` (hermes-test) | Hermes socket auth (`POST /api/v1/introspect` with Hermes's service token, D-002) |
 | `CORS_ORIGIN` | Ember origin | Hermes CORS in production |
 | `AUTH_CACHE_TTL_MS` | `300000` | Socket session cache |
 | `AUTH_CACHE_MAX_ENTRIES` | `1000` | Socket session cache |
-| `HERMES_CREDENTIAL_FILE` | `/var/lib/hermes/credential.json` (mounted volume) | Hermes service identity (D-019); unset = identity off |
+| `HERMES_CREDENTIAL_FILE` | `/var/lib/hermes/credential.json` (mounted volume) | Hermes service identity (D-019); unset = identity off and every socket handshake refused |
 | `GAIA_ENROLLMENT_TOKEN` | single-use token from an admin | First enrollment without approval by user code (D-019) |
 | `HERMES_SERVICE_NAME` | `Hermes <hostname>` | Name shown to the admin on the enrollment request |
 | `HERMES_ENROLLMENT_POLL_MS` | `5000` | Wait between enrollment polls |
@@ -167,7 +171,7 @@ Local compose runs two Hermes services: `hermes` on `:9000` (auth against OG Gai
 
 ## Service identity
 
-Hermes can hold its own Gaia identity (D-019): it enrolls as a service client, keeps a `client_credentials` token and rotates its secret. It is **off unless `HERMES_CREDENTIAL_FILE` is set**. The relay (socket auth, `POST /publish`, `/health`) never depends on it: if enrollment fails, Hermes logs `Hermes service identity: start failed (...); retrying in Ns` and retries every `HERMES_IDENTITY_RETRY_MS`; it does not crash or reject. This is covered by `tests/start-hermes.test.js` (Gaia unreachable, enrollment 404 or 500, broken or unreadable credential file). Note that ah-4396 makes socket auth use the service token, after which the identity is required.
+Hermes can hold its own Gaia identity (D-019): it enrolls as a service client, keeps a `client_credentials` token and rotates its secret. It is **off unless `HERMES_CREDENTIAL_FILE` is set**. `POST /publish` and `/health` never depend on it: if enrollment fails, Hermes logs `Hermes service identity: start failed (...); retrying in Ns` and retries every `HERMES_IDENTITY_RETRY_MS`; it does not crash or reject. This is covered by `tests/start-hermes.test.js` (Gaia unreachable, enrollment 404 or 500, broken or unreadable credential file). Socket auth does need it: handshakes are checked through Gaia introspection with the service token (D-002), so until the identity has a token every handshake is refused.
 
 Deploy settings (the helm chart, `values-dev.yaml`, lives on the OVH server, not in this repo; set these there):
 
@@ -238,7 +242,10 @@ Constraints: **no Gaia**, **no Prometheus**, stub the Gaia session loader.
 | `tests/intents/evaluate.test.js` | Snapshot validation, stale revision, membership, duplicates |
 | `tests/intents/room-debug.test.js` | Composite room subscriber descriptions |
 | `tests/auth/tokens.test.js` | `auth.token` then Bearer; no query-string tokens |
-| `tests/auth/session-cache.test.js` | TTL expiry and max-entry eviction |
+| `tests/auth/session-cache.test.js` | TTL expiry, max-entry eviction, entries bounded by token `exp` |
+| `tests/auth/gaia-session.test.js` | Introspection call with the service token; user, agent, delegated, service and inactive answers; no service token |
+| `tests/auth/socket-session-policy.test.js` | User and agent sessions accepted; service, expired and userless refused |
+| `tests/socket/auth.test.js` | Handshakes against the stub Gaia introspection: active, inactive, service refused, no service token, expiry disconnect, cache bounded by `exp` |
 | `tests/config.test.js` | Production secret/CORS requirements, origin option, identity env |
 | `tests/auth/service-identity.test.js` | Enrollment (token and user code), restart with stored credential, token refresh, rotation, retries; against an in-process stub Gaia (`tests/support/stub-gaia.js`) |
 | `tests/auth/credential-store.test.js` | Atomic mode-600 credential file |

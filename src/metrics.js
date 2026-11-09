@@ -8,7 +8,7 @@
  */
 function createCounters() {
 	return {
-		auth: { accepted: 0, rejected: 0, cacheHits: 0, cacheMisses: 0 },
+		auth: { accepted: 0, rejected: 0, cacheHits: 0, cacheMisses: 0, expired: 0 },
 		intents: { setsAccepted: 0, setsRejected: 0, staleRevisions: 0, accepted: 0, rejected: 0 },
 		publish: { accepted: 0, rejected: 0, emitted: 0, zeroSubscribers: 0 }
 	};

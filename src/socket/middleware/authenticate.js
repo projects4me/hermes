@@ -1,8 +1,11 @@
 const { extractSocketToken } = require('../../auth/tokens');
+const { acceptsSocketSession } = require('../../auth/socket-session-policy');
 
 /**
  * This function returns Socket.IO middleware that authenticates the handshake
- * against Gaia (with a session cache) and stores userId/projectIds on the socket.
+ * through Gaia introspection (with a session cache), accepts only user and
+ * agent actors whose token has not expired, and stores the actor and its
+ * project ids and token expiry on the socket.
  *
  * @method createAuthenticate
  * @param {Object} deps
@@ -10,10 +13,11 @@ const { extractSocketToken } = require('../../auth/tokens');
  * @param {Function} deps.loadSession Gaia session loader
  * @param {Object} deps.counters In-memory counters
  * @param {Object} deps.logger Logger with error()
+ * @param {Function} [deps.now] Clock in ms
  * @returns {Function} Async Socket.IO middleware
  * @public
  */
-function createAuthenticate({ sessionCache, loadSession, counters, logger }) {
+function createAuthenticate({ sessionCache, loadSession, counters, logger, now = Date.now }) {
 	return async (socket, next) => {
 		try {
 			const credentials = extractSocketToken(socket.handshake);
@@ -32,13 +36,15 @@ function createAuthenticate({ sessionCache, loadSession, counters, logger }) {
 					sessionCache.set(credentials.token, session);
 				}
 			}
-			if (!session?.userId) {
+			if (!acceptsSocketSession(session, now())) {
 				counters.auth.rejected += 1;
 				return next(new Error('unauthorized'));
 			}
 
 			socket.data.userId = session.userId;
+			socket.data.actorType = session.actorType;
 			socket.data.projectIds = (session.projectIds || []).map(String);
+			socket.data.expiresAt = session.expiresAt;
 			socket.data.authSource = credentials.source;
 			counters.auth.accepted += 1;
 			return next();

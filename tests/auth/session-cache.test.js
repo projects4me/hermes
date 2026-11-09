@@ -16,3 +16,20 @@ test('session cache expires entries and enforces its bound', () => {
 	assert.equal(cache.get('b'), null);
 	assert.equal(cache.size, 0);
 });
+
+test('session cache entries never outlive the token', () => {
+	let now = 0;
+	const cache = new SessionCache({ ttlMs: 100, maxEntries: 5, now: () => now });
+	cache.set('short', { userId: 'a', expiresAt: 30 });
+	cache.set('long', { userId: 'b', expiresAt: 1000 });
+	cache.set('expired', { userId: 'c', expiresAt: 0 });
+	assert.equal(cache.get('expired'), null);
+	assert.equal(cache.size, 2);
+
+	now = 30;
+	assert.equal(cache.get('short'), null);
+	assert.equal(cache.get('long').userId, 'b');
+
+	now = 100;
+	assert.equal(cache.get('long'), null);
+});
