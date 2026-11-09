@@ -5,7 +5,9 @@ const {
 	PROTOCOL_VERSION,
 	MAX_INTENTS,
 	EVENT_ALLOWLIST,
-	USER_SCOPED_EVENTS
+	USER_SCOPED_EVENTS,
+	RUNTIMES_SCOPE,
+	RUNTIME_SCOPED_EVENTS
 } = require('./names');
 const { validateEventEnvelope } = require('./envelope');
 const { validateIntentsSet } = require('./intents');
@@ -16,6 +18,8 @@ module.exports = {
 	MAX_INTENTS,
 	EVENT_ALLOWLIST,
 	USER_SCOPED_EVENTS,
+	RUNTIMES_SCOPE,
+	RUNTIME_SCOPED_EVENTS,
 	validateIntentsSet,
 	validateEventEnvelope,
 	validationErrors

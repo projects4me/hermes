@@ -62,6 +62,28 @@ const USER_SCOPED_EVENTS = new Set([
 ]);
 
 /**
+ * The runtimes scope: the projectId Gaia publishes to so that every Talos
+ * runtime (a service token of kind runtime) can take the event on one socket.
+ *
+ * @property RUNTIMES_SCOPE
+ * @type String
+ * @public
+ */
+const RUNTIMES_SCOPE = 'runtimes';
+
+/**
+ * Events that may be published to, and subscribed on, the runtimes scope.
+ * They are the only events a runtime socket may subscribe to.
+ *
+ * @property RUNTIME_SCOPED_EVENTS
+ * @type Set<String>
+ * @public
+ */
+const RUNTIME_SCOPED_EVENTS = new Set([
+	'workflow.agent.run.requested'
+]);
+
+/**
  * Set form of EVENT_ALLOWLIST for O(1) lookups.
  *
  * @property EVENT_NAMES
@@ -75,5 +97,7 @@ module.exports = {
 	MAX_INTENTS,
 	EVENT_ALLOWLIST,
 	USER_SCOPED_EVENTS,
+	RUNTIMES_SCOPE,
+	RUNTIME_SCOPED_EVENTS,
 	EVENT_NAMES
 };

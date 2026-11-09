@@ -1,7 +1,9 @@
 const {
 	validateIntentsSet,
 	validationErrors,
-	USER_SCOPED_EVENTS
+	USER_SCOPED_EVENTS,
+	RUNTIMES_SCOPE,
+	RUNTIME_SCOPED_EVENTS
 } = require('../contract');
 const { compositeRoom } = require('./rooms');
 
@@ -23,17 +25,27 @@ function normalizeIntent(intent) {
 /**
  * Authorize one intent against the socket's session.
  *
- * User-scoped events (notification.created, workflow.agent.run.requested) require projectId === 'user:<socketUserId>'.
- * All other events require projectId to be in authorizedProjectIds.
+ * A runtime socket (D-020) may only subscribe to the runtimes scope, and only
+ * for the runtime-scoped events. No other socket may use the runtimes scope.
+ * User-scoped events (notification.created, workflow.agent.run.requested)
+ * require projectId === 'user:<socketUserId>'. All other events require
+ * projectId to be in authorizedProjectIds.
  *
  * @method isIntentAuthorized
  * @param {Object} intent { projectId, eventName }
  * @param {Set} projectIds Set of String project ids the socket may access
  * @param {String} socketUserId The authenticated user id for this socket
+ * @param {Boolean} [isRuntime] Whether the socket is a runtime service token
  * @returns {Boolean}
  * @public
  */
-function isIntentAuthorized(intent, projectIds, socketUserId) {
+function isIntentAuthorized(intent, projectIds, socketUserId, isRuntime = false) {
+	if (isRuntime) {
+		return intent.projectId === RUNTIMES_SCOPE && RUNTIME_SCOPED_EVENTS.has(intent.eventName);
+	}
+	if (intent.projectId === RUNTIMES_SCOPE) {
+		return false;
+	}
 	if (USER_SCOPED_EVENTS.has(intent.eventName)) {
 		return intent.projectId === `user:${socketUserId}`;
 	}
@@ -49,10 +61,11 @@ function isIntentAuthorized(intent, projectIds, socketUserId) {
  * @param {Object} state Current { revision, rooms } for the socket
  * @param {Array<String>} authorizedProjectIds Project ids from the Gaia session
  * @param {String} socketUserId Authenticated user id
+ * @param {Boolean} [isRuntime] Whether the socket is a runtime service token
  * @returns {Object} { ok, stale, nextState?, ack }
  * @public
  */
-function evaluateIntentSet(payload, state, authorizedProjectIds, socketUserId) {
+function evaluateIntentSet(payload, state, authorizedProjectIds, socketUserId, isRuntime = false) {
 	if (!validateIntentsSet(payload)) {
 		return {
 			ok: false,
@@ -87,7 +100,7 @@ function evaluateIntentSet(payload, state, authorizedProjectIds, socketUserId) {
 
 	for (const rawIntent of payload.intents) {
 		const intent = normalizeIntent(rawIntent);
-		if (!isIntentAuthorized(intent, projectIds, socketUserId)) {
+		if (!isIntentAuthorized(intent, projectIds, socketUserId, isRuntime)) {
 			rejected.push({ ...intent, reason: 'project_not_authorized' });
 			continue;
 		}

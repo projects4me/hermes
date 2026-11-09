@@ -1,6 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { EVENT_ALLOWLIST, USER_SCOPED_EVENTS } = require('../../src/contract');
+const {
+	EVENT_ALLOWLIST,
+	USER_SCOPED_EVENTS,
+	RUNTIMES_SCOPE,
+	RUNTIME_SCOPED_EVENTS
+} = require('../../src/contract');
 
 test('event allowlist is the exact approved contract', () => {
 	assert.deepEqual(EVENT_ALLOWLIST, [
@@ -34,4 +39,9 @@ test('user-scoped events are the exact approved set', () => {
 		'notification.created',
 		'workflow.agent.run.requested'
 	]);
+});
+
+test('the runtimes scope carries workflow.agent.run.requested only', () => {
+	assert.equal(RUNTIMES_SCOPE, 'runtimes');
+	assert.deepEqual([...RUNTIME_SCOPED_EVENTS], ['workflow.agent.run.requested']);
 });
