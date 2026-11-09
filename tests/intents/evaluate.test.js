@@ -166,3 +166,66 @@ test('workflow.agent.run.requested intent rejected for another user or a project
 	assert.deepEqual(result.ack.rejected.map((r) => r.reason),
 		['project_not_authorized', 'project_not_authorized']);
 });
+
+test('a runtime socket may subscribe to workflow.agent.run.requested on the runtimes scope', () => {
+	const result = evaluateIntentSet(
+		{
+			protocolVersion: 1,
+			revision: 0,
+			intents: [{ projectId: 'runtimes', eventName: AGENT_RUN_EVENT }]
+		},
+		{ revision: -1, rooms: new Set() },
+		[],
+		null,
+		true
+	);
+	assert.equal(result.ok, true);
+	assert.equal(result.ack.rejected.length, 0);
+	assert.deepEqual([...result.nextState.rooms], [compositeRoom('runtimes', AGENT_RUN_EVENT)]);
+});
+
+test('a runtime socket is refused every other intent', () => {
+	const result = evaluateIntentSet(
+		{
+			protocolVersion: 1,
+			revision: 0,
+			intents: [
+				{ projectId: 'runtimes', eventName: 'notification.created' },
+				{ projectId: 'runtimes', eventName: 'issue.created' },
+				{ projectId: 'project-1', eventName: 'issue.created' },
+				{ projectId: 'user:null', eventName: AGENT_RUN_EVENT },
+				{ projectId: 'user:null', eventName: 'notification.created' }
+			]
+		},
+		{ revision: -1, rooms: new Set() },
+		['project-1'],
+		null,
+		true
+	);
+	assert.equal(result.ok, true);
+	assert.equal(result.ack.accepted.length, 0);
+	assert.equal(result.ack.rejected.length, 5);
+	assert.ok(result.ack.rejected.every((r) => r.reason === 'project_not_authorized'));
+});
+
+test('user and agent sockets are refused the runtimes scope', () => {
+	for (const projectIds of [[], ['runtimes']]) {
+		const result = evaluateIntentSet(
+			{
+				protocolVersion: 1,
+				revision: 0,
+				intents: [
+					{ projectId: 'runtimes', eventName: AGENT_RUN_EVENT },
+					{ projectId: 'runtimes', eventName: 'issue.created' }
+				]
+			},
+			{ revision: -1, rooms: new Set() },
+			projectIds,
+			'agent-1'
+		);
+		assert.equal(result.ok, true);
+		assert.equal(result.ack.accepted.length, 0);
+		assert.deepEqual(result.ack.rejected.map((r) => r.reason),
+			['project_not_authorized', 'project_not_authorized']);
+	}
+});

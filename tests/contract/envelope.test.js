@@ -64,3 +64,21 @@ test('event envelope validation accepts workflow.agent.run.requested with run id
 	assert.equal(validateEventEnvelope(envelope), true);
 	assert.equal(validateEventEnvelope({ ...envelope, prompt: 'do it' }), false);
 });
+
+test('the runtimes scope is accepted on /publish for workflow.agent.run.requested only', () => {
+	const envelope = {
+		schemaVersion: 1,
+		eventId: 'event-run-2',
+		eventName: 'workflow.agent.run.requested',
+		occurredAt: '2026-11-09T10:00:00Z',
+		projectId: 'runtimes',
+		resource: { type: 'workflowRun', id: 'run-1' },
+		actorId: null,
+		changes: {},
+		meta: { workflowId: 'workflow-1', stepId: 'step-1', entityType: 'issue', entityId: 'issue-1' }
+	};
+	assert.equal(validateEventEnvelope(envelope), true);
+	assert.equal(validateEventEnvelope({ ...envelope, eventName: 'notification.created' }), false);
+	assert.deepEqual(validateEventEnvelope.errors.map((e) => e.path), ['/projectId']);
+	assert.equal(validateEventEnvelope({ ...envelope, eventName: 'issue.created' }), false);
+});
