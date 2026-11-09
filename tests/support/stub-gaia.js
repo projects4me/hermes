@@ -20,7 +20,8 @@ async function startStubGaia({ enrollmentToken = 'enroll-token-1', expiresIn = 3
 		serviceClients: new Map([['sc-stored', 'hermes_stored']]),
 		tokens: new Map(),
 		tokenCount: 0,
-		enrollmentStatus: null
+		enrollmentStatus: null,
+		userToken: 'user-token-1'
 	};
 
 	function send(res, status, body, headers = {}) {
@@ -53,6 +54,9 @@ async function startStubGaia({ enrollmentToken = 'enroll-token-1', expiresIn = 3
 			if (state.enrollmentStatus === 429) {
 				return send(res, 429, { error: 'too many' }, { 'Retry-After': '120' });
 			}
+			if (state.enrollmentStatus) {
+				return send(res, state.enrollmentStatus, { errors: [{ detail: 'enrollment failed' }] });
+			}
 			const attributes = JSON.parse(raw).data.attributes;
 			if (attributes.enrollmentToken && attributes.enrollmentToken !== enrollmentToken) {
 				return send(res, 400, { errors: [{ detail: 'The enrollment token is not valid.' }] });
@@ -67,6 +71,17 @@ async function startStubGaia({ enrollmentToken = 'enroll-token-1', expiresIn = 3
 			};
 			state.enrollments.set(id, enrollment);
 			return send(res, 201, enrollmentDocument(id, enrollment, { pollToken: enrollment.pollToken }));
+		}
+
+		if (req.method === 'GET' && url.pathname === '/api/v1/user/me') {
+			const token = String(req.headers.authorization || '').replace(/^Bearer /, '');
+			if (token !== state.userToken) {
+				return send(res, 401, { errors: [{ detail: 'unauthorized' }] });
+			}
+			return send(res, 200, { data: { type: 'user', id: 'user-1' } });
+		}
+		if (req.method === 'GET' && url.pathname === '/api/v1/membership') {
+			return send(res, 200, { data: [{ attributes: { projectId: 'project-1' } }] });
 		}
 
 		const pollMatch = url.pathname.match(/^\/api\/v1\/serviceenrollment\/([^/]+)$/);
