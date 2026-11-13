@@ -31,6 +31,9 @@ test('event allowlist is the exact approved contract', () => {
 		'idea.plan.created',
 		'idea.plan.status.changed',
 		'idea.planissue.created',
+		'doc.created',
+		'doc.updated',
+		'doc.deleted',
 		'workflow.agent.run.requested',
 		'user.access.changed'
 	]);
