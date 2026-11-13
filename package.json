@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "nodemon server.js",
-    "test": "node --test"
+    "test": "npm run test:relay && npm run test:collab",
+    "test:relay": "cd tests && node --test",
+    "test:collab": "npm --prefix collab install --no-audit --no-fund && npm --prefix collab test"
   },
   "dependencies": {
     "express": "^4.18.2",
