@@ -214,6 +214,15 @@ are out of scope here.
 | Rationale | Hermes checks access at connect and caches it (D-012), so removed members and disabled users kept receiving events. Gaia owns access, so it only says *whose* access changed and Hermes asks Gaia for the new access instead of trusting a payload. The issue asked for the event not to reach clients; it is delivered to the user's own sockets anyway, because Gaia's merged `hermes.expect` live cases (agaia-4393) subscribe to it to observe the publish, and the payload carries only the user's own id, so a client may use it to refresh what it shows. Disconnecting on a failed re-check fails closed: the client reconnects and its handshake asks Gaia. |
 | Implications | Gaia `EventNames` carries the same name. Project-scoped intents for it are rejected. Role changes are out of scope (they don't change what Hermes routes). A missed event (Hermes down, fail-open publish) leaves cached access until the cache TTL or token expiry. Membership additions are picked up for later `intents:set` snapshots; Hermes does not join rooms the client did not ask for. `/health` reports the `access` counters (`events`, `socketsRechecked`, `socketsDisconnected`, `intentsDropped`, `failures`). |
 
+### D-022 — `doc.created`, `doc.updated` and `doc.deleted` join the allowlist
+
+| | |
+|---|---|
+| Status | Accepted |
+| Decision | `EVENT_ALLOWLIST` adds `doc.created`, `doc.updated` and `doc.deleted` (ah-4530, Gaia idea "Docs"), in the same order as Gaia `EventNames`. They are project-scoped like the issue and idea events: `projectId` is a project id, `resource` is `{ type: 'doc', id: <docId> }`, and `doc.updated` carries the changed field names in `changes` (ids and names only, no values). `POST /publish` emits them to the rooms of members whose `intents:set` names them. Any other `doc.*` name is still rejected as an unknown event (400). |
+| Rationale | Docs lists and open doc pages update live on create, rename, lock and delete. Gaia owns the domain and publishes; Hermes only accepts the names (D-003). The envelope is unchanged, so no field is added. |
+| Implications | Gaia `EventNames` carries the same names; the contract changes merge together. Doc content traffic is out of scope: it goes through the collab server, never through Hermes. |
+
 ---
 
 ## Open questions
