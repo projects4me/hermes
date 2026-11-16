@@ -29,7 +29,8 @@ token check.
 
 ### Access changes while connected (ADR D-023)
 
-Gaia tells the server when a doc's access changed:
+Gaia tells the server when a doc's access changed. The server's HTTP routes (all under `/internal/`) are declared
+in `src/http/routes.js`; each route's handler has its own module in `src/http/`.
 
 ```
 POST /internal/docs/<docId>/access

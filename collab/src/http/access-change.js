@@ -1,11 +1,11 @@
 /**
- * Gaia's server-to-server door into the collab server (D-023):
- * `POST /internal/docs/:docId/access` with the shared secret in
- * `X-Collab-Secret`, telling it that a doc's access changed.
+ * Handler of `POST /internal/docs/:docId/access` (D-023): Gaia tells the
+ * collab server, with the shared secret in `X-Collab-Secret`, that a doc's
+ * access changed.
  */
 const crypto = require('crypto');
+const { reply } = require('./reply');
 
-const PATH = /^\/internal\/docs\/([A-Za-z0-9-]{1,64})\/access$/;
 const REASONS = new Set(['locked', 'unlocked', 'deleted', 'access']);
 const MAX_BODY_BYTES = 4096;
 
@@ -62,49 +62,21 @@ function readJson(request) {
 }
 
 /**
- * @method reply
- * @param {ServerResponse} response
- * @param {Number} status
- * @param {Object} [body] JSON body
- * @param {Object} [headers] Extra headers
- * @private
- */
-function reply(response, status, body, headers = {}) {
-	if (response.headersSent) {
-		return;
-	}
-	response.writeHead(status, { 'Content-Type': 'application/json', ...headers });
-	response.end(body === undefined ? '' : JSON.stringify(body));
-}
-
-/**
- * This function returns the handler of the internal endpoint.
+ * This function returns the access-change handler.
  *
- * @method createInternalEndpoint
+ * @method createAccessChangeHandler
  * @param {Object} options
  * @param {String} options.secret Shared secret (COLLAB_SECRET)
  * @param {Function} options.onAccessChange function(docId, reason), started without waiting for it
- * @returns {Function} Async function(request, response) → whether the request was the endpoint's
+ * @returns {Function} Async function(request, response, params) with `params.docId` from the path
  * @public
  */
-function createInternalEndpoint({ secret, onAccessChange }) {
+function createAccessChangeHandler({ secret, onAccessChange }) {
 	if (typeof secret !== 'string' || secret === '') {
-		throw new Error('the internal endpoint needs a secret');
+		throw new Error('the access-change route needs a secret');
 	}
 
-	/**
-	 * @method answer
-	 * @param {String} docId
-	 * @param {IncomingMessage} request
-	 * @param {ServerResponse} response
-	 * @returns {Promise<void>}
-	 * @private
-	 */
-	async function answer(docId, request, response) {
-		if (request.method !== 'POST') {
-			request.resume();
-			return reply(response, 405, { error: 'method not allowed' }, { Allow: 'POST' });
-		}
+	return async function accessChange(request, response, { docId }) {
 		if (!secretMatches(secret, request.headers['x-collab-secret'])) {
 			request.resume();
 			return reply(response, 401, { error: 'unauthorized' });
@@ -118,26 +90,7 @@ function createInternalEndpoint({ secret, onAccessChange }) {
 		}
 		onAccessChange(docId, body.reason);
 		return reply(response, 202);
-	}
-
-	return async function handle(request, response) {
-		const path = (request.url || '').split('?')[0];
-		if (!path.startsWith('/internal/')) {
-			return false;
-		}
-		const match = PATH.exec(path);
-		try {
-			if (match) {
-				await answer(match[1], request, response);
-			} else {
-				request.resume();
-				reply(response, 404, { error: 'not found' });
-			}
-		} catch (_error) {
-			reply(response, 500, { error: 'internal error' });
-		}
-		return true;
 	};
 }
 
-module.exports = { createInternalEndpoint };
+module.exports = { createAccessChangeHandler };

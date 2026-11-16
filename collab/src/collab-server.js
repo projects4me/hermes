@@ -14,7 +14,7 @@ const { SaveHealth } = require('./save-health');
 const { SaveRetry } = require('./save-retry');
 const { AccessRecheck } = require('./access-recheck');
 const { UpdateLimits } = require('./update-limits');
-const { createInternalEndpoint } = require('./internal-endpoint');
+const { createRoutes } = require('./http/routes');
 const { isOriginAllowed, refuseUpgrade } = require('./origin-policy');
 const { documentNameOf } = require('./access');
 
@@ -48,7 +48,7 @@ function handled() {
  * @param {Object} options
  * @param {String} options.gaiaUrl Gaia origin without a trailing slash
  * @param {Number} [options.port] Port to listen on
- * @param {String} options.secret Shared secret of the internal endpoint (D-023)
+ * @param {String} options.secret Shared secret of the internal routes (D-023)
  * @param {String[]} [options.allowedOrigins] Browser origins allowed to connect; empty allows all
  * @param {Object} [options.limits] `maxUpdateBytes`, `maxUpdatesPerSecond`
  * @param {Object} [options.timings] `debounceMs`, `maxDebounceMs`, `renderIdleMs`, `connectionTimeoutMs`,
@@ -76,7 +76,7 @@ function createCollabServer({ gaiaUrl, port, secret, allowedOrigins = [], limits
 	const retry = new SaveRetry({ retryMs: saveRetryMs });
 	const saves = new SavePolicy({ store, finalSaveRetryMs, retry, health, logger });
 
-	const internalEndpoint = createInternalEndpoint({
+	const routes = createRoutes({
 		secret,
 		onAccessChange: (docId, reason) => {
 			const documentName = documentNameOf(docId);
@@ -95,7 +95,7 @@ function createCollabServer({ gaiaUrl, port, secret, allowedOrigins = [], limits
 	// only from extensions, not from the server configuration.
 	const hooks = {
 		async onRequest({ request, response }) {
-			if (await internalEndpoint(request, response)) {
+			if (await routes(request, response)) {
 				return handled();
 			}
 		},
