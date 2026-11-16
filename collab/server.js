@@ -8,8 +8,13 @@ const { createCollabServer } = require('./src/collab-server');
 const config = loadConfig();
 const server = createCollabServer(config);
 
-server.listen().then(() => {
+// ws drops frames far over the update limit before buffering them; the
+// limit itself is checked per message (D-023).
+server.listen(config.port, null, { maxPayload: config.limits.maxUpdateBytes * 2 }).then(() => {
 	console.log(`collab: listening on port ${config.port}, Gaia ${config.gaiaUrl}`);
+	if (config.allowedOrigins.length === 0) {
+		console.log('collab: COLLAB_ALLOWED_ORIGINS is empty, every browser origin may connect');
+	}
 }).catch((error) => {
 	console.error(`collab: could not listen on port ${config.port} (${error.message})`);
 	process.exit(1);

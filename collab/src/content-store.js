@@ -86,6 +86,19 @@ class ContentStore {
 	}
 
 	/**
+	 * This function stops saving with a token whose connection may no longer
+	 * write.
+	 *
+	 * @method removeWriter
+	 * @param {String} documentName
+	 * @param {String} token
+	 * @public
+	 */
+	removeWriter(documentName, token) {
+		this.docs.get(documentName)?.writers.drop(token);
+	}
+
+	/**
 	 * @method leave
 	 * @param {String} documentName
 	 * @param {String} socketId

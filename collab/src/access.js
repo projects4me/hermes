@@ -70,4 +70,16 @@ function canWrite(entities, doc) {
 	return entities.has('doc.update') && !TRUE_VALUES.has(doc?.data?.attributes?.locked);
 }
 
-module.exports = { parseDocumentName, allowedEntities, canOpen, canWrite };
+/**
+ * This function returns the Hocuspocus document name of a doc.
+ *
+ * @method documentNameOf
+ * @param {String} docId
+ * @returns {String} `doc:<docId>`
+ * @public
+ */
+function documentNameOf(docId) {
+	return `doc:${docId}`;
+}
+
+module.exports = { parseDocumentName, documentNameOf, allowedEntities, canOpen, canWrite };

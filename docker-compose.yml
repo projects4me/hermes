@@ -55,6 +55,9 @@ services:
       - NODE_ENV=development
       - COLLAB_PORT=1234
       - GAIA_URL=http://host.docker.internal:8080
+      # Shared with Gaia's internal access calls (D-023); the dev default applies when unset.
+      - COLLAB_SECRET=${COLLAB_SECRET:-collab-dev-secret}
+      - COLLAB_ALLOWED_ORIGINS=${COLLAB_ALLOWED_ORIGINS:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # Longer than server.js's 30 s exit timeout, so the final saves can finish (D-022).
