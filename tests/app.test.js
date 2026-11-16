@@ -416,3 +416,39 @@ test('notification.created intent rejected when scope is another user', async (t
 	assert.equal(ack.rejected[0].reason, 'project_not_authorized');
 });
 
+
+test('doc events reach a project member socket with a matching intent; unknown doc events are rejected', async (t) => {
+	const hermes = createHermesApp({
+		config,
+		loadSession: async () => ({ actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1', projectIds: ['project-1'] }),
+		logger: { info() {}, error() {} }
+	});
+	const { baseUrl } = await listen(hermes);
+	t.after(() => hermes.io.close());
+	const client = await connectClient(t, baseUrl, 'valid');
+	const ack = await client.emitWithAck('intents:set', {
+		protocolVersion: 1,
+		revision: 0,
+		intents: ['doc.created', 'doc.updated', 'doc.deleted']
+			.map((eventName) => ({ projectId: 'project-1', eventName }))
+	});
+	assert.equal(ack.accepted.length, 3);
+	assert.equal(ack.rejected.length, 0);
+
+	for (const eventName of ['doc.created', 'doc.updated', 'doc.deleted']) {
+		const doc = envelope({
+			eventId: `event-${eventName}`,
+			eventName,
+			resource: { type: 'doc', id: 'doc-1' },
+			changes: eventName === 'doc.updated' ? { title: true, locked: true } : {}
+		});
+		const received = once(client, 'domain:event');
+		const response = await postEvent(baseUrl, doc);
+		assert.equal(response.status, 200, eventName);
+		assert.equal((await response.json()).subscribers, 1);
+		assert.deepEqual(await received, doc);
+	}
+
+	const unknown = await postEvent(baseUrl, envelope({ eventName: 'doc.content.changed' }));
+	assert.equal(unknown.status, 400);
+});

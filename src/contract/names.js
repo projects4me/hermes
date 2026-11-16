@@ -45,6 +45,9 @@ const EVENT_ALLOWLIST = Object.freeze([
 	'idea.plan.created',
 	'idea.plan.status.changed',
 	'idea.planissue.created',
+	'doc.created',
+	'doc.updated',
+	'doc.deleted',
 	'workflow.agent.run.requested',
 	'user.access.changed'
 ]);

@@ -44,6 +44,22 @@ test('event envelope validation accepts every idea event with meta.ideaId', () =
 	}
 });
 
+test('event envelope validation accepts every doc event and rejects unknown doc events', () => {
+	const base = {
+		schemaVersion: 1,
+		occurredAt: '2026-11-13T10:00:00Z',
+		projectId: 'project-1',
+		resource: { type: 'doc', id: 'doc-1' },
+		actorId: 'user-1',
+		changes: { title: true, locked: true }
+	};
+	for (const eventName of ['doc.created', 'doc.updated', 'doc.deleted']) {
+		assert.equal(validateEventEnvelope({ ...base, eventId: `event-${eventName}`, eventName }), true, eventName);
+	}
+	assert.equal(validateEventEnvelope({ ...base, eventId: 'event-x', eventName: 'doc.content.changed' }), false);
+	assert.equal(validateEventEnvelope({ ...base, eventId: 'event-y', eventName: 'doc.restored' }), false);
+});
+
 test('event envelope validation accepts workflow.agent.run.requested with run ids in meta', () => {
 	const envelope = {
 		schemaVersion: 1,
