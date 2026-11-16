@@ -1,6 +1,7 @@
 /**
  * How the collab server saves: a failed save is logged and reported, never
- * thrown, and the save before a doc leaves memory is retried (D-022).
+ * thrown, and retried with back-off while the doc is loaded; the save before
+ * a doc leaves memory is retried too (D-022).
  */
 
 /**
@@ -12,11 +13,15 @@ class SavePolicy {
 	 * @param {Object} options
 	 * @param {Object} options.store ContentStore
 	 * @param {Number[]} options.finalSaveRetryMs Waits before each retry of the final save
+	 * @param {Object} options.retry SaveRetry, the back-off of failed saves
+	 * @param {Object} options.health SaveHealth, told about every save's outcome
 	 * @param {Object} [options.logger] console-like logger
 	 */
-	constructor({ store, finalSaveRetryMs, logger = console }) {
+	constructor({ store, finalSaveRetryMs, retry, health, logger = console }) {
 		this.store = store;
 		this.finalSaveRetryMs = finalSaveRetryMs;
+		this.retry = retry;
+		this.health = health;
 		this.logger = logger;
 	}
 
@@ -24,7 +29,7 @@ class SavePolicy {
 	 * This function saves a doc and reports whether Gaia took it. A failure
 	 * is logged with the doc name and the error's own message (a Gaia
 	 * status), never tokens or content, and is not thrown: Hocuspocus does
-	 * not handle rejections from its save timers.
+	 * not handle rejections from its save timers. A failed save is retried.
 	 *
 	 * @method trySave
 	 * @param {String} documentName
@@ -34,12 +39,15 @@ class SavePolicy {
 	 * @public
 	 */
 	async trySave(documentName, document, render) {
+		let saved;
 		try {
-			return await this.store.save(documentName, document, { render });
+			saved = await this.store.save(documentName, document, { render });
 		} catch (error) {
 			this.logger.error(`collab: ${documentName} not saved (${error.message})`);
-			return false;
+			saved = false;
 		}
+		this.record(documentName, document, saved, render);
+		return saved;
 	}
 
 	/**
@@ -66,6 +74,39 @@ class SavePolicy {
 			}
 		}
 		this.logger.error(`collab: ${documentName} unloaded with edits Gaia did not take`);
+	}
+
+	/**
+	 * This function stops the retries of an unloaded doc.
+	 *
+	 * @method forget
+	 * @param {String} documentName
+	 * @public
+	 */
+	forget(documentName) {
+		this.retry.cancel(documentName);
+		this.health.forget(documentName);
+	}
+
+	/**
+	 * @method record
+	 * @param {String} documentName
+	 * @param {Y.Doc} document
+	 * @param {Boolean} saved
+	 * @param {Boolean} render
+	 * @private
+	 */
+	record(documentName, document, saved, render) {
+		if (!this.store.has(documentName)) {
+			return;
+		}
+		if (saved) {
+			this.health.saved(documentName);
+			this.retry.cancel(documentName);
+			return;
+		}
+		this.health.failed(documentName);
+		this.retry.schedule(documentName, render, (retryRender) => this.trySave(documentName, document, retryRender));
 	}
 }
 

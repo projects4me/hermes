@@ -12,6 +12,8 @@ async function startStubGaia() {
 	const refusedWriters = new Map();
 	const requests = [];
 	let nextContentId = 1;
+	let outageStatus = null;
+	let delayMs = 0;
 
 	function reply(res, status, body) {
 		res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -26,6 +28,9 @@ async function startStubGaia() {
 		const url = new URL(req.url, 'http://gaia');
 		const body = raw ? JSON.parse(raw) : undefined;
 		requests.push({ method: req.method, path: url.pathname, query: url.searchParams, headers: req.headers, body });
+		if (outageStatus !== null) {
+			return reply(res, outageStatus, { errors: [{}] });
+		}
 		const token = (req.headers.authorization || '').replace(/^Bearer /, '');
 		const user = users.get(token);
 		if (!user) {
@@ -81,7 +86,7 @@ async function startStubGaia() {
 		req.on('data', (chunk) => {
 			raw += chunk;
 		});
-		req.on('end', () => handle(req, res, raw));
+		req.on('end', () => (delayMs > 0 ? setTimeout(() => handle(req, res, raw), delayMs) : handle(req, res, raw)));
 	});
 	await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 
@@ -94,6 +99,15 @@ async function startStubGaia() {
 		},
 		addDoc(id, attributes) {
 			docs.set(id, { projectId: 'project-1', locked: false, ...attributes });
+		},
+		outage(status) {
+			outageStatus = status;
+		},
+		delay(ms) {
+			delayMs = ms;
+		},
+		deleteDoc(id) {
+			docs.delete(id);
 		},
 		addContent(attributes) {
 			const row = { id: `content-${nextContentId++}`, attributes: { html: null, plainText: null, ...attributes } };
