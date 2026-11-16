@@ -216,6 +216,17 @@ are out of scope here.
 
 ---
 
+### D-022 — The Docs collab server lives in `collab/` as a separate process
+
+| | |
+|---|---|
+| Status | Accepted |
+| Decision | Projects4Me Docs co-editing runs on a Hocuspocus server in `collab/`: its own `package.json`, entrypoint (`collab/server.js`), Dockerfile, compose service (`collab`, port 1234) and tests. It shares no code or dependencies with the relay: nothing in `collab/` imports from `src/` and nothing in `src/` imports from `collab/`. It holds each doc's Yjs document and awareness in memory only, for document name `doc:<docId>`, and persists only through Gaia's `Doccontent` resource (Gaia Docs D-002 to D-004), with the connected users' own OAuth tokens. A client may open a doc when its token's user has `doc.get` and Gaia shows them the doc; the connection is read-only without `doc.update` or when the doc is `locked`, and the server drops updates from read-only connections. The rules D-001 to D-021 apply to the relay (`src/`) and are unchanged. Detail: `collab/README.md`. |
+| Rationale | A Yjs document must be held in memory, merged and saved, which the relay must not do (D-001: no domain logic, no storage; D-002: browsers never publish). A separate process in its own folder keeps the relay locked while reusing this repo's CI and review, and can move to its own repo by moving the folder. |
+| Implications | The root `npm test` also installs and runs `collab/` tests. The relay image ignores `collab/` (`.dockerignore`), so it is unchanged. Tokens and document content are never logged. A failed save is logged and never stops the process; the save before a doc is unloaded is retried, then the doc is unloaded with an error log. Writer tokens are not refreshed while connected. One instance only: documents are not shared between instances. Access changes while connected, agents as server-side peers, version snapshots and comments are out of scope. `collab/` moves to its own repo when it takes on agents or export, or when its releases start to clash with the relay's. |
+
+---
+
 ## Open questions
 
 - Replace `projectId: "user:…"` with a real `scope` field (requires Gaia + Prometheus).

@@ -42,6 +42,25 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
+  # Docs collab server (D-022), a separate process from the relay.
+  collab:
+    build: ./collab
+    container_name: collab
+    ports:
+      - "1234:1234"
+    volumes:
+      - ./collab:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - COLLAB_PORT=1234
+      - GAIA_URL=http://host.docker.internal:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Longer than server.js's 30 s exit timeout, so the final saves can finish (D-022).
+    stop_grace_period: 35s
+    restart: unless-stopped
+
 # Each Hermes keeps its own service credential (D-019) for socket-auth
 # introspection (D-002). The first start enrolls: approve the logged user code
 # in Projects4Me, or set GAIA_ENROLLMENT_TOKEN.
