@@ -2,7 +2,10 @@ const {
 	PROTOCOL_VERSION,
 	EVENT_NAMES,
 	RUNTIMES_SCOPE,
-	RUNTIME_SCOPED_EVENTS
+	RUNTIME_SCOPED_EVENTS,
+	SERVICE_SCOPE_PREFIX,
+	isServiceScopedEvent,
+	isAllowedOnServiceScope
 } = require('./names');
 const {
 	ISO_TIMESTAMP,
@@ -60,6 +63,12 @@ function validateEventEnvelope(payload) {
 		errors.push(error('/projectId', 'type', 'must be a non-empty string'));
 	} else if (payload.projectId === RUNTIMES_SCOPE && !RUNTIME_SCOPED_EVENTS.has(payload.eventName)) {
 		errors.push(error('/projectId', 'enum', `${RUNTIMES_SCOPE} scope is not allowed for this event`));
+	} else if (payload.projectId.startsWith(SERVICE_SCOPE_PREFIX)) {
+		if (!isAllowedOnServiceScope(payload.projectId, payload.eventName)) {
+			errors.push(error('/projectId', 'enum', 'this service scope is not allowed for this event'));
+		}
+	} else if (isServiceScopedEvent(payload.eventName)) {
+		errors.push(error('/projectId', 'enum', 'must be a service scope for this event'));
 	}
 	if (!isPlainObject(payload.resource)) {
 		errors.push(error('/resource', 'type', 'must be object'));

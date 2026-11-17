@@ -98,3 +98,26 @@ test('the runtimes scope is accepted on /publish for workflow.agent.run.requeste
 	assert.deepEqual(validateEventEnvelope.errors.map((e) => e.path), ['/projectId']);
 	assert.equal(validateEventEnvelope({ ...envelope, eventName: 'issue.created' }), false);
 });
+
+test('search.semantic.changed is accepted on /publish on the ares service scope only', () => {
+	const envelope = {
+		schemaVersion: 1,
+		eventId: 'event-search-1',
+		eventName: 'search.semantic.changed',
+		occurredAt: '2026-11-17T10:00:00Z',
+		projectId: 'service:ares',
+		resource: { type: 'issue', id: 'issue-1' },
+		actorId: null,
+		changes: {},
+		meta: { projectId: 'project-1' }
+	};
+	assert.equal(validateEventEnvelope(envelope), true);
+	for (const projectId of ['project-1', 'user:user-1', 'runtimes', 'service:runtime', 'service:', 'service:ares ', 'Service:ares']) {
+		assert.equal(validateEventEnvelope({ ...envelope, projectId }), false, projectId);
+		assert.deepEqual(validateEventEnvelope.errors.map((e) => e.path), ['/projectId'], projectId);
+	}
+	for (const projectId of ['service:ares', 'service:', 'service:unknown']) {
+		assert.equal(validateEventEnvelope({ ...envelope, projectId, eventName: 'issue.created' }), false, projectId);
+		assert.deepEqual(validateEventEnvelope.errors.map((e) => e.path), ['/projectId'], projectId);
+	}
+});

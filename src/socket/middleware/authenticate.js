@@ -1,12 +1,13 @@
 const { extractSocketToken } = require('../../auth/tokens');
-const { acceptsSocketSession, isRuntimeSession } = require('../../auth/socket-session-policy');
+const { acceptsSocketSession, socketServiceKind } = require('../../auth/socket-session-policy');
 
 /**
  * This function returns Socket.IO middleware that authenticates the handshake
  * through Gaia introspection (with a session cache), accepts only user and
- * agent actors and runtime service tokens whose token has not expired, and
- * stores the actor, whether it is a runtime, its project ids and token expiry
- * on the socket.
+ * agent actors, runtime service tokens and service tokens of a kind with
+ * service-scoped events whose token has not expired, and stores the actor,
+ * its service kind (null for users and agents), its project ids and token
+ * expiry on the socket.
  *
  * @method createAuthenticate
  * @param {Object} deps
@@ -44,7 +45,7 @@ function createAuthenticate({ sessionCache, loadSession, counters, logger, now =
 
 			socket.data.userId = session.userId;
 			socket.data.actorType = session.actorType;
-			socket.data.isRuntime = isRuntimeSession(session);
+			socket.data.serviceKind = socketServiceKind(session);
 			socket.data.projectIds = (session.projectIds || []).map(String);
 			socket.data.expiresAt = session.expiresAt;
 			socket.data.authSource = credentials.source;

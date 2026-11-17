@@ -177,7 +177,7 @@ test('a runtime socket may subscribe to workflow.agent.run.requested on the runt
 		{ revision: -1, rooms: new Set() },
 		[],
 		null,
-		true
+		'runtime'
 	);
 	assert.equal(result.ok, true);
 	assert.equal(result.ack.rejected.length, 0);
@@ -200,7 +200,7 @@ test('a runtime socket is refused every other intent', () => {
 		{ revision: -1, rooms: new Set() },
 		['project-1'],
 		null,
-		true
+		'runtime'
 	);
 	assert.equal(result.ok, true);
 	assert.equal(result.ack.accepted.length, 0);
@@ -227,5 +227,58 @@ test('user and agent sockets are refused the runtimes scope', () => {
 		assert.equal(result.ack.accepted.length, 0);
 		assert.deepEqual(result.ack.rejected.map((r) => r.reason),
 			['project_not_authorized', 'project_not_authorized']);
+	}
+});
+
+const SEARCH_EVENT = 'search.semantic.changed';
+
+test('a service socket may subscribe to its kind\'s events on its own service scope only', () => {
+	const result = evaluateIntentSet(
+		{
+			protocolVersion: 1,
+			revision: 0,
+			intents: [
+				{ projectId: 'service:ares', eventName: SEARCH_EVENT },
+				{ projectId: 'service:ares', eventName: 'issue.created' },
+				{ projectId: 'service:runtime', eventName: SEARCH_EVENT },
+				{ projectId: 'project-1', eventName: SEARCH_EVENT },
+				{ projectId: 'project-1', eventName: 'issue.created' },
+				{ projectId: 'runtimes', eventName: AGENT_RUN_EVENT },
+				{ projectId: 'user:null', eventName: 'notification.created' }
+			]
+		},
+		{ revision: -1, rooms: new Set() },
+		['project-1'],
+		null,
+		'ares'
+	);
+	assert.equal(result.ok, true);
+	assert.deepEqual(result.ack.accepted, [{ projectId: 'service:ares', eventName: SEARCH_EVENT }]);
+	assert.deepEqual([...result.nextState.rooms], [compositeRoom('service:ares', SEARCH_EVENT)]);
+	assert.equal(result.ack.rejected.length, 6);
+	assert.ok(result.ack.rejected.every((r) => r.reason === 'project_not_authorized'));
+});
+
+test('user, agent and runtime sockets are refused service scopes and service-scoped events', () => {
+	for (const serviceKind of [null, 'runtime']) {
+		const result = evaluateIntentSet(
+			{
+				protocolVersion: 1,
+				revision: 0,
+				intents: [
+					{ projectId: 'service:ares', eventName: SEARCH_EVENT },
+					{ projectId: 'service:ares', eventName: 'issue.created' },
+					{ projectId: 'project-1', eventName: SEARCH_EVENT },
+					{ projectId: 'user:agent-1', eventName: SEARCH_EVENT }
+				]
+			},
+			{ revision: -1, rooms: new Set() },
+			['project-1', 'service:ares'],
+			'agent-1',
+			serviceKind
+		);
+		assert.equal(result.ok, true);
+		assert.deepEqual(result.ack.accepted, []);
+		assert.ok(result.ack.rejected.every((r) => r.reason === 'project_not_authorized'));
 	}
 });

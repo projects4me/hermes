@@ -39,3 +39,11 @@ test('a state without intents stays empty', () => {
 	assert.deepEqual(dropped, []);
 	assert.equal(nextState.rooms.size, 0);
 });
+
+test('re-applying keeps a service socket\'s own scope intents', () => {
+	const ares = [{ projectId: 'service:ares', eventName: 'search.semantic.changed' }];
+	assert.deepEqual(reauthorizeIntentState(stateOf(ares), [], null, 'ares').dropped, []);
+	assert.deepEqual(reauthorizeIntentState(stateOf(ares), [], null).dropped, ares);
+	const runtime = [{ projectId: 'runtimes', eventName: 'workflow.agent.run.requested' }];
+	assert.deepEqual(reauthorizeIntentState(stateOf(runtime), [], null, 'runtime').dropped, []);
+});

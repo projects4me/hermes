@@ -242,3 +242,78 @@ test('user and agent tokens are refused the runtimes scope', async (t) => {
 		assert.equal(ack.rejected[0].reason, 'project_not_authorized', token);
 	}
 });
+
+const SEARCH_INTENT = { projectId: 'service:ares', eventName: 'search.semantic.changed' };
+
+function searchChanged() {
+	return {
+		schemaVersion: 1,
+		eventId: 'event-search-1',
+		eventName: 'search.semantic.changed',
+		occurredAt: '2026-11-17T10:00:00Z',
+		projectId: 'service:ares',
+		resource: { type: 'issue', id: 'issue-1' },
+		actorId: null,
+		changes: {},
+		meta: { projectId: 'project-1' }
+	};
+}
+
+test('an ares service token receives search.semantic.changed on the service:ares scope', async (t) => {
+	const { gaia, baseUrl } = await startHermes(t);
+	gaia.introspects('ares-token', serviceAnswer({ clientId: 'svc_ares', serviceKind: 'ares' }));
+
+	const client = await connect(t, baseUrl, 'ares-token');
+	const ack = await client.emitWithAck('intents:set', { protocolVersion: 1, revision: 0, intents: [SEARCH_INTENT] });
+	assert.deepEqual(ack.accepted, [SEARCH_INTENT]);
+	assert.deepEqual(ack.rejected, []);
+
+	const received = new Promise((resolve) => client.once('domain:event', resolve));
+	const response = await fetch(`${baseUrl}/publish`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', 'X-Hermes-Secret': 'test-secret' },
+		body: JSON.stringify(searchChanged())
+	});
+	assert.equal(response.status, 200);
+	assert.equal((await response.json()).subscribers, 1);
+	assert.deepEqual(await received, searchChanged());
+});
+
+test('an ares service token is refused project, user and runtimes intents', async (t) => {
+	const { gaia, baseUrl } = await startHermes(t);
+	gaia.introspects('ares-token', serviceAnswer({ clientId: 'svc_ares', serviceKind: 'ares', projectIds: ['project-1'] }));
+
+	const client = await connect(t, baseUrl, 'ares-token');
+	const ack = await client.emitWithAck('intents:set', {
+		protocolVersion: 1,
+		revision: 0,
+		intents: [
+			{ projectId: 'project-1', eventName: 'issue.created' },
+			{ projectId: 'project-1', eventName: 'search.semantic.changed' },
+			RUNTIMES_INTENT
+		]
+	});
+	assert.deepEqual(ack.accepted, []);
+	assert.deepEqual(ack.rejected.map((r) => r.reason),
+		['project_not_authorized', 'project_not_authorized', 'project_not_authorized']);
+});
+
+test('user, agent and runtime tokens are refused the service:ares scope', async (t) => {
+	const { gaia, baseUrl } = await startHermes(t);
+	gaia.introspects('user-token', activeAnswer());
+	gaia.introspects('agent-token', activeAnswer({ sub: 'agent-user-1', actorType: 'agent', act: 'svc_ares', serviceKind: 'ares' }));
+	gaia.introspects('runtime-token', serviceAnswer());
+
+	for (const token of ['user-token', 'agent-token', 'runtime-token']) {
+		const client = await connect(t, baseUrl, token);
+		const ack = await client.emitWithAck('intents:set', { protocolVersion: 1, revision: 0, intents: [SEARCH_INTENT] });
+		assert.deepEqual(ack.accepted, [], token);
+		assert.equal(ack.rejected[0].reason, 'project_not_authorized', token);
+	}
+});
+
+test('service tokens of a kind without service-scoped events still cannot open a socket', async (t) => {
+	const { gaia, baseUrl } = await startHermes(t);
+	gaia.introspects('hermes-token', serviceAnswer({ serviceKind: 'hermes' }));
+	await assert.rejects(() => connect(t, baseUrl, 'hermes-token'), /unauthorized/);
+});

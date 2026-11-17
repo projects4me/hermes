@@ -1,3 +1,5 @@
+const { RUNTIME_SERVICE_KIND, SERVICE_SCOPED_EVENTS } = require('../contract');
+
 /**
  * Actor types that may open a normal socket (user sessions and agents,
  * delegated agent tokens included).
@@ -9,33 +11,30 @@
 const SOCKET_ACTOR_TYPES = Object.freeze(['user', 'agent']);
 
 /**
- * The service kind whose service tokens may open a runtimes socket (D-020).
+ * This function returns the service kind of a service token that may open a
+ * socket: a runtime (D-020) or a kind with service-scoped events (D-024). It
+ * returns null for any other session, delegated agent tokens included.
  *
- * @property RUNTIME_SERVICE_KIND
- * @type String
- * @public
- */
-const RUNTIME_SERVICE_KIND = 'runtime';
-
-/**
- * This function tells whether an introspected session is a Talos runtime:
- * a service token (not a delegated agent token) of service kind runtime.
- *
- * @method isRuntimeSession
+ * @method socketServiceKind
  * @param {Object|null} session { userId, actorType, serviceKind, projectIds, expiresAt }
- * @returns {Boolean}
+ * @returns {String|null}
  * @public
  */
-function isRuntimeSession(session) {
-	return Boolean(session)
-		&& session.actorType === 'service'
-		&& session.serviceKind === RUNTIME_SERVICE_KIND;
+function socketServiceKind(session) {
+	if (!session || session.actorType !== 'service') {
+		return null;
+	}
+	if (session.serviceKind !== RUNTIME_SERVICE_KIND && !SERVICE_SCOPED_EVENTS.has(session.serviceKind)) {
+		return null;
+	}
+	return session.serviceKind;
 }
 
 /**
  * This function decides whether an introspected session may open a socket:
- * a user or agent actor with an id, or a runtime service token, whose token
- * has not expired yet. Other service tokens are refused.
+ * a user or agent actor with an id, a runtime service token, or a service
+ * token of a kind with service-scoped events, whose token has not expired
+ * yet. Other service tokens are refused.
  *
  * @method acceptsSocketSession
  * @param {Object|null} session { userId, actorType, serviceKind, projectIds, expiresAt }
@@ -48,7 +47,7 @@ function acceptsSocketSession(session, now) {
 		return false;
 	}
 	const isActor = Boolean(session.userId) && SOCKET_ACTOR_TYPES.includes(session.actorType);
-	if (!isActor && !isRuntimeSession(session)) {
+	if (!isActor && !socketServiceKind(session)) {
 		return false;
 	}
 	return Number.isFinite(session.expiresAt) && session.expiresAt > now;
@@ -56,7 +55,6 @@ function acceptsSocketSession(session, now) {
 
 module.exports = {
 	SOCKET_ACTOR_TYPES,
-	RUNTIME_SERVICE_KIND,
-	isRuntimeSession,
+	socketServiceKind,
 	acceptsSocketSession
 };

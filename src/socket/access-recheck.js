@@ -1,5 +1,5 @@
 const { extractSocketToken } = require('../auth/tokens');
-const { acceptsSocketSession } = require('../auth/socket-session-policy');
+const { acceptsSocketSession, socketServiceKind } = require('../auth/socket-session-policy');
 const { reauthorizeIntentState } = require('../intents/reauthorize');
 const { replaceIntentRooms } = require('../intents/replace');
 
@@ -84,7 +84,9 @@ function createAccessRecheck({ io, sessionCache, loadSession, counters, logger, 
 		if (!socket.connected) {
 			return;
 		}
-		if (!acceptsSocketSession(session, now()) || session.userId !== socket.data.userId) {
+		if (!acceptsSocketSession(session, now())
+			|| session.userId !== socket.data.userId
+			|| socketServiceKind(session) !== socket.data.serviceKind) {
 			revoke(socket, 'access_revoked');
 			return;
 		}
@@ -93,7 +95,7 @@ function createAccessRecheck({ io, sessionCache, loadSession, counters, logger, 
 		socket.data.projectIds = (session.projectIds || []).map(String);
 		socket.data.expiresAt = session.expiresAt;
 		const previous = socket.data.intentState;
-		const { nextState, dropped } = reauthorizeIntentState(previous, socket.data.projectIds, socket.data.userId);
+		const { nextState, dropped } = reauthorizeIntentState(previous, socket.data.projectIds, socket.data.userId, socket.data.serviceKind);
 		await replaceIntentRooms(socket, previous.rooms, nextState.rooms);
 		socket.data.intentState = nextState;
 		counters.access.socketsRechecked += 1;

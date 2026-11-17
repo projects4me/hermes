@@ -77,7 +77,7 @@ function registerIntentHandlers(io, { counters, logger }) {
 				socket.data.intentState,
 				socket.data.projectIds,
 				socket.data.userId,
-				socket.data.isRuntime
+				socket.data.serviceKind
 			);
 			if (!result.ok) {
 				counters.intents.setsRejected += 1;
