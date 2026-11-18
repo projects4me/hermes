@@ -401,6 +401,51 @@ test('notification.created is delivered only to the matching user socket', async
 	assert.deepEqual(bEvents, []);
 });
 
+test('user.mentioned is delivered only to the mentioned user socket and refused on other scopes', async (t) => {
+	const hermes = createTestHermes(t, async (token) => {
+		if (token === 'user-a') return { actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1', projectIds: ['project-1'] };
+		if (token === 'user-b') return { actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-2', projectIds: ['project-1'] };
+		return null;
+	});
+	const { baseUrl } = await listen(hermes);
+	const socketA = await connectClient(t, baseUrl, 'user-a');
+	const socketB = await connectClient(t, baseUrl, 'user-b');
+
+	const ackA = await socketA.emitWithAck('intents:set', {
+		protocolVersion: 1,
+		revision: 0,
+		intents: [{ projectId: 'user:user-1', eventName: 'user.mentioned' }]
+	});
+	assert.equal(ackA.accepted.length, 1);
+	assert.equal(ackA.rejected.length, 0);
+
+	const ackOther = await socketB.emitWithAck('intents:set', {
+		protocolVersion: 1,
+		revision: 0,
+		intents: [
+			{ projectId: 'user:user-1', eventName: 'user.mentioned' },
+			{ projectId: 'project-1', eventName: 'user.mentioned' }
+		]
+	});
+	assert.equal(ackOther.accepted.length, 0);
+	assert.equal(ackOther.rejected.length, 2);
+
+	const mentioned = once(socketA, 'domain:event');
+	const response = await postEvent(baseUrl, {
+		schemaVersion: 1,
+		eventId: 'mention-1',
+		eventName: 'user.mentioned',
+		occurredAt: '2026-08-20T10:00:00Z',
+		projectId: 'user:user-1',
+		resource: { type: 'mention', id: 'mention-1' },
+		actorId: 'user-2',
+		changes: { mentionId: 'mention-1', relatedTo: 'issue', relatedId: 'issue-1', projectId: 'project-1', actor: 'user-2' },
+		meta: {}
+	});
+	assert.equal(response.status, 200);
+	assert.equal((await mentioned).eventId, 'mention-1');
+});
+
 test('notification.created intent rejected when scope is another user', async (t) => {
 	const hermes = createTestHermes(t, async () => ({ actorType: 'user', expiresAt: TOKEN_EXPIRES_AT, userId: 'user-1', projectIds: [] }));
 	const { baseUrl } = await listen(hermes);
