@@ -40,6 +40,8 @@ test('event allowlist is the exact approved contract', () => {
 		'doc.deleted',
 		'workflow.agent.run.requested',
 		'user.access.changed',
+		'user.mentioned',
+		'workflow.run.finished',
 		'search.semantic.changed'
 	]);
 });
@@ -48,7 +50,8 @@ test('user-scoped events are the exact approved set', () => {
 	assert.deepEqual([...USER_SCOPED_EVENTS], [
 		'notification.created',
 		'workflow.agent.run.requested',
-		'user.access.changed'
+		'user.access.changed',
+		'user.mentioned'
 	]);
 });
 

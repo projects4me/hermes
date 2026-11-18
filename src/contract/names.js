@@ -50,6 +50,8 @@ const EVENT_ALLOWLIST = Object.freeze([
 	'doc.deleted',
 	'workflow.agent.run.requested',
 	'user.access.changed',
+	'user.mentioned',
+	'workflow.run.finished',
 	'search.semantic.changed'
 ]);
 
@@ -64,7 +66,8 @@ const EVENT_ALLOWLIST = Object.freeze([
 const USER_SCOPED_EVENTS = new Set([
 	'notification.created',
 	'workflow.agent.run.requested',
-	'user.access.changed'
+	'user.access.changed',
+	'user.mentioned'
 ]);
 
 /**

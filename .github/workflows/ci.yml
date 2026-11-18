@@ -30,3 +30,7 @@ jobs:
     - name: Run Hermes tests
       run: |
         npm test
+
+    - name: Check event allowlist against Gaia event registry
+      run: |
+        node scripts/check-event-registry.js https://raw.githubusercontent.com/projects4me/gaia/dev/docs/generated/events.json
