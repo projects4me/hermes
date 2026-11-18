@@ -256,7 +256,18 @@ are out of scope here.
 
 ---
 
-### D-025 — `workflow.run.finished` is a project-scoped event
+### D-025 — `user.mentioned` is a user-scoped event
+
+| | |
+|---|---|
+| Status | Accepted |
+| Decision | `EVENT_ALLOWLIST` and `USER_SCOPED_EVENTS` carry `user.mentioned` (`src/contract/names.js`; the entry landed with the registry drift check, ah-4643). Gaia publishes it (agaia-4648) with `projectId` `user:<mentionedUserId>` and ids only: `mentionId`, `relatedTo`, `relatedId`, `projectId`, `actor`. Only that user's sockets may subscribe: a project-scoped or another user's `user:` intent is rejected like any user-scoped event (D-009). |
+| Rationale | A mention concerns one person, so it must not reach every project member. Reusing the user scope keeps the access rule in one place. |
+| Implications | The contract change is the external request from Gaia's Event Registry idea; the drift check against Gaia's `events.json` covers the name. Clients load the mention by id from Gaia. |
+
+---
+
+### D-026 — `workflow.run.finished` is a project-scoped event
 
 | | |
 |---|---|
