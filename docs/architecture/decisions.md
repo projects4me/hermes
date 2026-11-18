@@ -47,7 +47,7 @@ are out of scope here.
 |---|---|
 | Status | Accepted |
 | Decision | Publishable names live in `EVENT_ALLOWLIST` (`src/contract/names.js`). Both `POST /publish` and `intents:set` refuse anything outside that list. |
-| Rationale | Unknown names must not create rooms or reach browsers. The list documents the contract in this repo and must stay in lockstep with Gaia `EventNames`. |
+| Rationale | Unknown names must not create rooms or reach browsers. The list documents the contract in this repo and must stay in lockstep with Gaia `EventNames`. CI enforces it: `scripts/check-event-registry.js` compares `EVENT_ALLOWLIST` and `USER_SCOPED_EVENTS` with Gaia's `docs/generated/events.json` (enabled, hermes channel, user scope). |
 | Implications | Adding a live event requires this allowlist plus the matching Gaia `EventNames` entry. A name Prometheus registers but Hermes does not allow is rejected here. |
 
 ### D-004 — Room keys are internal composite rooms
