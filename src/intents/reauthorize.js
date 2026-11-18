@@ -11,15 +11,16 @@ const { compositeRoom } = require('./rooms');
  * @param {Object} state Current { revision, rooms, intents } for the socket
  * @param {Array<String>} authorizedProjectIds Project ids from the fresh Gaia session
  * @param {String} socketUserId Authenticated user id
+ * @param {String|null} [serviceKind] Service kind of a service socket, null for users and agents
  * @returns {{nextState: Object, dropped: Array<Object>}}
  * @public
  */
-function reauthorizeIntentState(state, authorizedProjectIds, socketUserId) {
+function reauthorizeIntentState(state, authorizedProjectIds, socketUserId, serviceKind = null) {
 	const projectIds = new Set((authorizedProjectIds || []).map(String));
 	const kept = [];
 	const dropped = [];
 	for (const intent of state.intents || []) {
-		if (isIntentAuthorized(intent, projectIds, socketUserId)) {
+		if (isIntentAuthorized(intent, projectIds, socketUserId, serviceKind)) {
 			kept.push(intent);
 		} else {
 			dropped.push(intent);

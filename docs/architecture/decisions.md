@@ -245,6 +245,17 @@ are out of scope here.
 
 ---
 
+### D-024 — Service tokens take service-scoped events on `service:<serviceKind>`
+
+| | |
+|---|---|
+| Status | Accepted |
+| Decision | `EVENT_ALLOWLIST` adds `search.semantic.changed`, and `SERVICE_SCOPED_EVENTS` maps a service kind to the events it may take: `ares` → `{ search.semantic.changed }` (`src/contract/names.js`, ah-4657, Gaia idea "Semantic Search"). Like D-009 and D-020 the scope rides in `projectId`, as `service:<serviceKind>`. `/publish` accepts a `service:` projectId only when it names a mapped kind and the event is one of that kind's events, and accepts a service-scoped event only on such a scope; anything else is 400 `invalid_event` at `/projectId`. A token whose introspection answer is `actorType: service` with a mapped `serviceKind` may open a socket (`socketServiceKind` in `src/auth/socket-session-policy.js`, which also covers runtimes: the socket keeps one `serviceKind`, `runtime` for D-020), checked through the same introspection call and session cache as every socket (D-002, D-012); it has no user id. Such a socket may set only `{ projectId: 'service:<its kind>', eventName: <its kind's event> }`; every other intent (project, user scope, `runtimes`, another kind's scope) is rejected as `project_not_authorized`. User, agent and runtime sockets, delegated agent tokens with a mapped `serviceKind` included, are rejected for every service scope and every service-scoped event, whatever their memberships. Service tokens of an unmapped kind still cannot open a socket. The access re-check (D-021) keeps a service socket's own intents and disconnects a socket whose introspected service kind changed. |
+| Rationale | Ares indexes records of every project for semantic search; joining every project would need a membership in each and break the 100-intent cap (D-008, D-010). The request (from Gaia, idea "Semantic Search") proposed a separate introspection path for tokens with no user; Hermes already introspects every socket token with its own service token (D-019, D-020), so it is adapted to reuse that path, and only the policy and the scope are new. A scope per kind generalises D-020 without moving runtimes: `runtimes` stays as it is. Keying on the introspected `actorType` and `serviceKind` keeps Gaia the authority on who is a service, and allowing a service socket nothing else keeps a service token off project and user data. |
+| Implications | Gaia `EventNames` carries `search.semantic.changed` and publishes it with `projectId: 'service:ares'`; the contract changes merge together. The event carries ids only, like every event: Ares reads the record from Gaia. Every Ares socket receives every such event. Adding a service-scoped event or kind is an ADR entry plus a `SERVICE_SCOPED_EVENTS` change. Prometheus never uses service scopes. Other service events are out of scope. |
+
+---
+
 ## Open questions
 
 - Replace `projectId: "user:…"` with a real `scope` field (requires Gaia + Prometheus).

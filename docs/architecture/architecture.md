@@ -79,7 +79,9 @@ The client authenticates its Socket.IO handshake with `auth.token` (or an
 `Authorization: Bearer` header). Hermes checks that token with one Gaia
 introspection call made with its own service token (D-002): user and agent
 tokens are accepted, runtime service tokens (`actorType: service`,
-`serviceKind: runtime`) are accepted for the runtimes scope only (D-020), other
+`serviceKind: runtime`) are accepted for the runtimes scope only (D-020),
+service tokens of a kind with service-scoped events (`serviceKind: ares`) are
+accepted for their `service:<serviceKind>` scope only (D-024), other
 service tokens are refused, and the socket is disconnected
 (`io server disconnect`) when the token expires, so the client reconnects with
 its refreshed token. When Gaia publishes `user.access.changed` for a user,
@@ -124,7 +126,10 @@ revision on that socket. There may be at most 100 intents. Hermes checks every
 `user:<socketUserId>` for the user-scoped events `notification.created` and
 `workflow.agent.run.requested`). A runtime socket may only set
 `{ "projectId": "runtimes", "eventName": "workflow.agent.run.requested" }`, and
-no other socket may use the `runtimes` scope (D-020). Hermes deduplicates accepted
+no other socket may use the `runtimes` scope (D-020). A service socket may only
+set its kind's service-scoped events on `service:<serviceKind>` (for Ares:
+`{ "projectId": "service:ares", "eventName": "search.semantic.changed" }`), and
+no other socket may use a service scope or a service-scoped event (D-024). Hermes deduplicates accepted
 intents, and replaces that socket's composite rooms only after the full
 request is validated. Room keys are internal.
 
@@ -247,16 +252,16 @@ Constraints: **no Gaia**, **no Prometheus**, stub the Gaia session loader.
 
 | File | Covers |
 |---|---|
-| `tests/contract/envelope.test.js` | Closed envelope schema, allowlist, extra keys, `runtimes` scope only for its events |
-| `tests/contract/names.test.js` | Allowlist, user-scoped names, runtimes scope and its events |
-| `tests/intents/evaluate.test.js` | Snapshot validation, stale revision, membership, duplicates, runtimes scope for runtime sockets only |
+| `tests/contract/envelope.test.js` | Closed envelope schema, allowlist, extra keys, `runtimes` scope only for its events, `service:ares` scope only for `search.semantic.changed` |
+| `tests/contract/names.test.js` | Allowlist, user-scoped names, runtimes scope and its events, service scopes and their events |
+| `tests/intents/evaluate.test.js` | Snapshot validation, stale revision, membership, duplicates, runtimes scope for runtime sockets only, a service scope for its own service sockets only |
 | `tests/intents/reauthorize.test.js` | Re-applying accepted intents to new access: removed projects dropped, revision kept |
 | `tests/intents/room-debug.test.js` | Composite room subscriber descriptions |
 | `tests/auth/tokens.test.js` | `auth.token` then Bearer; no query-string tokens |
 | `tests/auth/session-cache.test.js` | TTL expiry, max-entry eviction, entries bounded by token `exp`, per-user eviction |
 | `tests/auth/gaia-session.test.js` | Introspection call with the service token; user, agent, delegated, service (with `serviceKind`) and inactive answers; no service token |
 | `tests/auth/socket-session-policy.test.js` | User, agent and runtime service sessions accepted; other service, expired and userless refused |
-| `tests/socket/auth.test.js` | Handshakes against the stub Gaia introspection: active, inactive, non-runtime service refused, runtime token receives `workflow.agent.run.requested` on `runtimes`, runtime refused other intents, user and agent refused `runtimes`, no service token, expiry disconnect, cache bounded by `exp` |
+| `tests/socket/auth.test.js` | Handshakes against the stub Gaia introspection: active, inactive, non-runtime service refused, runtime token receives `workflow.agent.run.requested` on `runtimes`, runtime refused other intents, user and agent refused `runtimes`, ares token receives `search.semantic.changed` on `service:ares` and is refused other intents, user, agent and runtime refused `service:ares`, no service token, expiry disconnect, cache bounded by `exp` |
 | `tests/socket/access-recheck.test.js` | `user.access.changed`: membership removal (room left), disabled user (disconnect, cache evicted), unchanged access (no effect), Gaia unreachable (disconnect), other events ignored |
 | `tests/config.test.js` | Production secret/CORS requirements, origin option, identity env |
 | `tests/auth/service-identity.test.js` | Enrollment (token and user code), restart with stored credential, token refresh, rotation, retries; against an in-process stub Gaia (`tests/support/stub-gaia.js`) |

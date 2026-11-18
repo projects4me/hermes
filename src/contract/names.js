@@ -49,7 +49,8 @@ const EVENT_ALLOWLIST = Object.freeze([
 	'doc.updated',
 	'doc.deleted',
 	'workflow.agent.run.requested',
-	'user.access.changed'
+	'user.access.changed',
+	'search.semantic.changed'
 ]);
 
 /**
@@ -77,6 +78,15 @@ const USER_SCOPED_EVENTS = new Set([
 const RUNTIMES_SCOPE = 'runtimes';
 
 /**
+ * The service kind whose service tokens may open a runtimes socket (D-020).
+ *
+ * @property RUNTIME_SERVICE_KIND
+ * @type String
+ * @public
+ */
+const RUNTIME_SERVICE_KIND = 'runtime';
+
+/**
  * Events that may be published to, and subscribed on, the runtimes scope.
  * They are the only events a runtime socket may subscribe to.
  *
@@ -87,6 +97,78 @@ const RUNTIMES_SCOPE = 'runtimes';
 const RUNTIME_SCOPED_EVENTS = new Set([
 	'workflow.agent.run.requested'
 ]);
+
+/**
+ * Prefix of a service scope projectId (`service:<serviceKind>`, D-024).
+ *
+ * @property SERVICE_SCOPE_PREFIX
+ * @type String
+ * @public
+ */
+const SERVICE_SCOPE_PREFIX = 'service:';
+
+/**
+ * Service-scoped events by service kind: Gaia publishes them to
+ * `service:<serviceKind>` and only a service token of that kind may subscribe
+ * to them there (D-024). They are the only events such a socket may take.
+ *
+ * @property SERVICE_SCOPED_EVENTS
+ * @type Map<String, Set<String>>
+ * @public
+ */
+const SERVICE_SCOPED_EVENTS = new Map([
+	['ares', new Set(['search.semantic.changed'])]
+]);
+
+/**
+ * This function returns the service kind from a service scope
+ * (`service:<serviceKind>`, D-024), or null when the projectId is not a
+ * service scope or names no kind.
+ *
+ * @method serviceKindFromScope
+ * @param {String} projectId Envelope or intent projectId
+ * @returns {String|null}
+ * @public
+ */
+function serviceKindFromScope(projectId) {
+	if (typeof projectId !== 'string' || !projectId.startsWith(SERVICE_SCOPE_PREFIX)) {
+		return null;
+	}
+	return projectId.slice(SERVICE_SCOPE_PREFIX.length) || null;
+}
+
+/**
+ * This function tells whether an event is service-scoped for any kind.
+ *
+ * @method isServiceScopedEvent
+ * @param {String} eventName Event name
+ * @returns {Boolean}
+ * @public
+ */
+function isServiceScopedEvent(eventName) {
+	for (const events of SERVICE_SCOPED_EVENTS.values()) {
+		if (events.has(eventName)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * This function tells whether an event may ride on a service scope: the
+ * scope names a known service kind and the event is one of that kind's
+ * service-scoped events.
+ *
+ * @method isAllowedOnServiceScope
+ * @param {String} projectId Envelope or intent projectId
+ * @param {String} eventName Event name
+ * @returns {Boolean}
+ * @public
+ */
+function isAllowedOnServiceScope(projectId, eventName) {
+	const events = SERVICE_SCOPED_EVENTS.get(serviceKindFromScope(projectId));
+	return Boolean(events) && events.has(eventName);
+}
 
 /**
  * User-scoped event Gaia publishes when a user's access changes (account
@@ -141,6 +223,12 @@ module.exports = {
 	USER_SCOPED_EVENTS,
 	RUNTIMES_SCOPE,
 	RUNTIME_SCOPED_EVENTS,
+	RUNTIME_SERVICE_KIND,
+	SERVICE_SCOPE_PREFIX,
+	SERVICE_SCOPED_EVENTS,
+	serviceKindFromScope,
+	isServiceScopedEvent,
+	isAllowedOnServiceScope,
 	USER_ACCESS_CHANGED,
 	USER_SCOPE_PREFIX,
 	userIdFromScope,

@@ -5,6 +5,10 @@ const {
 	USER_SCOPED_EVENTS,
 	RUNTIMES_SCOPE,
 	RUNTIME_SCOPED_EVENTS,
+	SERVICE_SCOPED_EVENTS,
+	serviceKindFromScope,
+	isServiceScopedEvent,
+	isAllowedOnServiceScope,
 	userIdFromScope
 } = require('../../src/contract');
 
@@ -35,7 +39,8 @@ test('event allowlist is the exact approved contract', () => {
 		'doc.updated',
 		'doc.deleted',
 		'workflow.agent.run.requested',
-		'user.access.changed'
+		'user.access.changed',
+		'search.semantic.changed'
 	]);
 });
 
@@ -57,4 +62,22 @@ test('userIdFromScope returns the user id of a user scope only', () => {
 	assert.equal(userIdFromScope('user:'), null);
 	assert.equal(userIdFromScope('project-1'), null);
 	assert.equal(userIdFromScope(undefined), null);
+});
+
+test('the ares service scope carries search.semantic.changed only', () => {
+	assert.deepEqual([...SERVICE_SCOPED_EVENTS.keys()], ['ares']);
+	assert.deepEqual([...SERVICE_SCOPED_EVENTS.get('ares')], ['search.semantic.changed']);
+	assert.equal(isServiceScopedEvent('search.semantic.changed'), true);
+	assert.equal(isServiceScopedEvent('issue.created'), false);
+	assert.equal(isAllowedOnServiceScope('service:ares', 'search.semantic.changed'), true);
+	assert.equal(isAllowedOnServiceScope('service:ares', 'issue.created'), false);
+	assert.equal(isAllowedOnServiceScope('service:runtime', 'search.semantic.changed'), false);
+	assert.equal(isAllowedOnServiceScope('project-1', 'search.semantic.changed'), false);
+});
+
+test('serviceKindFromScope returns the service kind of a service scope only', () => {
+	assert.equal(serviceKindFromScope('service:ares'), 'ares');
+	assert.equal(serviceKindFromScope('service:'), null);
+	assert.equal(serviceKindFromScope('user:42'), null);
+	assert.equal(serviceKindFromScope(undefined), null);
 });

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { acceptsSocketSession, isRuntimeSession } = require('../../src/auth/socket-session-policy');
+const { acceptsSocketSession, socketServiceKind } = require('../../src/auth/socket-session-policy');
 
 const now = 1000;
 
@@ -14,11 +14,20 @@ test('runtime service sessions with time left may open a socket', () => {
 	assert.equal(acceptsSocketSession({ userId: null, actorType: 'service', serviceKind: 'runtime', expiresAt: 1000 }, now), false);
 });
 
-test('only service tokens of kind runtime are runtime sessions', () => {
-	assert.equal(isRuntimeSession({ actorType: 'service', serviceKind: 'runtime' }), true);
-	assert.equal(isRuntimeSession({ actorType: 'service', serviceKind: 'hermes' }), false);
-	assert.equal(isRuntimeSession({ actorType: 'agent', serviceKind: 'runtime', userId: 'a' }), false);
-	assert.equal(isRuntimeSession(null), false);
+test('service sessions of a kind with service-scoped events may open a socket', () => {
+	assert.equal(acceptsSocketSession({ userId: null, actorType: 'service', serviceKind: 'ares', expiresAt: 2000 }, now), true);
+	assert.equal(acceptsSocketSession({ userId: null, actorType: 'service', serviceKind: 'ares', expiresAt: 1000 }, now), false);
+});
+
+test('only runtime and scoped service tokens have a socket service kind', () => {
+	assert.equal(socketServiceKind({ actorType: 'service', serviceKind: 'ares' }), 'ares');
+	assert.equal(socketServiceKind({ actorType: 'service', serviceKind: 'runtime' }), 'runtime');
+	assert.equal(socketServiceKind({ actorType: 'service', serviceKind: 'hermes' }), null);
+	assert.equal(socketServiceKind({ actorType: 'service', serviceKind: null }), null);
+	assert.equal(socketServiceKind({ actorType: 'agent', serviceKind: 'ares', userId: 'a' }), null);
+	assert.equal(socketServiceKind({ actorType: 'agent', serviceKind: 'runtime', userId: 'a' }), null);
+	assert.equal(socketServiceKind({ actorType: 'user', userId: 'u' }), null);
+	assert.equal(socketServiceKind(null), null);
 });
 
 test('other service sessions, expired tokens and missing users are refused', () => {
