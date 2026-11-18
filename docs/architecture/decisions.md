@@ -256,6 +256,17 @@ are out of scope here.
 
 ---
 
+### D-025 — `workflow.run.finished` is a project-scoped event
+
+| | |
+|---|---|
+| Status | Accepted |
+| Decision | `EVENT_ALLOWLIST` carries `workflow.run.finished` (`src/contract/names.js`, ah-4652, Gaia issue agaia-4651). It is a plain project event: `projectId` is the run's project id, so `/publish` and socket intents treat it like `issue.created` (member check of D-008, no user, runtime or service scope). The payload carries ids only: `runId`, `workflowId`, `status`, `test`, `entityType`, `entityId`. |
+| Rationale | Gaia publishes it when a workflow run completes or fails and clients of the project need to react. Project members already subscribe to project events through the member list, so no new scope or policy is needed; the request is accepted as written. The drift check against Gaia's event registry (ah-4643) keeps both lists in step. |
+| Implications | Project members may subscribe; non-members get `project_not_authorized`. The name was already on the list through the registry sync, so this entry records the decision and the test pins its scope. |
+
+---
+
 ## Open questions
 
 - Replace `projectId: "user:…"` with a real `scope` field (requires Gaia + Prometheus).
