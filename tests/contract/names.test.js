@@ -84,3 +84,10 @@ test('serviceKindFromScope returns the service kind of a service scope only', ()
 	assert.equal(serviceKindFromScope('user:42'), null);
 	assert.equal(serviceKindFromScope(undefined), null);
 });
+
+test('workflow.run.finished is project-scoped: not user, runtime or service scoped', () => {
+	assert.equal(EVENT_ALLOWLIST.includes('workflow.run.finished'), true);
+	assert.equal(USER_SCOPED_EVENTS.has('workflow.run.finished'), false);
+	assert.equal(RUNTIME_SCOPED_EVENTS.has('workflow.run.finished'), false);
+	assert.equal(isServiceScopedEvent('workflow.run.finished'), false);
+});
